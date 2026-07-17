@@ -34,6 +34,9 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
     - internalCustomerReference
@@ -46,6 +49,9 @@ exception-logging:
 | `application-name` | `spring.application.name` | Overrides the name recorded in events. |
 | `web-handler-enabled` | `true` | Enables uniform HTTP error responses. |
 | `aspect-enabled` | `true` | Enables `@LogFailure` interception. |
+| `trace-propagation-enabled` | `true` | Generates and propagates the HTTP trace context. |
+| `trace-header-name` | `X-Trace-Id` | Canonical trace-ID header. |
+| `correlation-header-name` | `X-Correlation-Id` | Supported legacy correlation header. |
 | `include-stacktrace` | `true` | Adds a sanitized stack trace to the structured event. |
 | `additional-sensitive-fields` | empty | Extends mandatory masking with domain-specific field names. |
 
@@ -180,7 +186,35 @@ Automatic masking reduces risk but cannot infer every possible business meaning.
 
 ## 10. Correlation
 
-`correlationId` and `traceId` are read from MDC. Ensure that an HTTP filter, message interceptor, or tracing platform adds them and clears them correctly after each request or message.
+For inbound HTTP requests, the library reuses a valid `X-Trace-Id`, falls back to `X-Correlation-Id`, or generates a UUID when neither is available. The same value is stored as `traceId` and `correlationId` in MDC, returned in both response headers, and removed when the request scope closes.
+
+Inbound values must contain 8–128 letters, digits, dots, underscores, or hyphens. Unsafe values are rejected and replaced.
+
+Spring Boot-built `RestClient` and `RestTemplate` instances automatically send the current ID downstream:
+
+```java
+public CustomerGateway(RestClient.Builder builder) {
+    this.restClient = builder.baseUrl("http://customers-service").build();
+}
+```
+
+Raw clients created outside the Spring Boot builders do not receive customizers. Feign, WebClient, messaging clients, and other transports can read `TraceContext.currentTraceId()` from their own interceptor.
+
+For a job or message consumer, create or reuse a scope:
+
+```java
+try (TraceScope scope = traceContext.open(message.traceId())) {
+    process(message);
+}
+```
+
+Use `scope.traceId()` as the outgoing message header. For thread-pool work, capture the context before dispatch:
+
+```java
+executor.execute(traceContext.wrap(() -> process(command)));
+```
+
+The wrapper restores the worker thread's previous MDC state after completion.
 
 ## 11. HTTP handling
 

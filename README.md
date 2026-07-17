@@ -9,6 +9,7 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 ## Qué incluye
 
 - Autoconfiguración al añadir la dependencia al microservicio.
+- Generación, reutilización y propagación de un ID de traza entre microservicios.
 - Clasificación extensible mediante `ExceptionClassifier`.
 - Log JSON bajo el logger `exception.audit`, con stack trace saneado y configurable.
 - `BusinessException` con código funcional y estado HTTP.
@@ -92,6 +93,9 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
     - internalCustomerReference
@@ -128,7 +132,17 @@ Ejemplo abreviado:
 }
 ```
 
-Los valores `correlationId` y `traceId` se leen de MDC. El gateway, filtro HTTP o plataforma de trazas debe poblarlos.
+La librería genera automáticamente un ID cuando la petición no lo trae, reutiliza un `X-Trace-Id` válido, lo almacena en MDC, lo devuelve en la respuesta y lo propaga en clientes `RestClient` y `RestTemplate` construidos mediante Spring Boot. `X-Correlation-Id` se admite como cabecera heredada y se mantiene sincronizada con el ID de traza.
+
+Para jobs, consumidores o tareas asíncronas:
+
+```java
+try (TraceScope scope = traceContext.open()) {
+    executor.execute(traceContext.wrap(() -> process(command)));
+}
+```
+
+El ámbito restaura el MDC anterior al cerrarse, evitando reutilizar accidentalmente una traza en otro trabajo del mismo hilo.
 
 ## Extensión por microservicio
 

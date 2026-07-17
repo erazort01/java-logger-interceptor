@@ -9,6 +9,7 @@ The failure object, custom metadata, exception messages, and stack trace always 
 ## Main capabilities
 
 - Spring Boot auto-configuration after adding one dependency.
+- Trace-ID generation, reuse, and propagation across microservices.
 - Extensible exception classification through `ExceptionClassifier`.
 - Structured JSON event emitted by the `exception.audit` logger.
 - `BusinessException` with a stable business code and HTTP status.
@@ -82,6 +83,9 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
     - internalCustomerReference
@@ -116,7 +120,17 @@ exception-logging:
 }
 ```
 
-`correlationId` and `traceId` are read from MDC. The gateway, HTTP filter, or tracing platform should populate them.
+The library generates an ID when an inbound request has none, reuses a valid `X-Trace-Id`, stores it in MDC, returns it in the response, and propagates it through Spring Boot-built `RestClient` and `RestTemplate` instances. `X-Correlation-Id` is supported as a legacy fallback and kept aligned with the trace ID.
+
+For jobs, consumers, and asynchronous work:
+
+```java
+try (TraceScope scope = traceContext.open()) {
+    executor.execute(traceContext.wrap(() -> process(command)));
+}
+```
+
+Closing a scope restores the previous MDC values so pooled threads cannot leak a trace into unrelated work.
 
 ## Mandatory masking
 

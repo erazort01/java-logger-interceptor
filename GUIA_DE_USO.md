@@ -50,6 +50,9 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
     - internalCustomerReference
@@ -64,6 +67,9 @@ exception-logging:
 | `application-name` | `spring.application.name` | Permite sobrescribir el nombre mostrado en los logs. |
 | `web-handler-enabled` | `true` | Activa las respuestas HTTP uniformes. |
 | `aspect-enabled` | `true` | Activa el procesamiento de `@LogFailure`. |
+| `trace-propagation-enabled` | `true` | Genera y propaga el contexto de traza HTTP. |
+| `trace-header-name` | `X-Trace-Id` | Cabecera canónica del ID de traza. |
+| `correlation-header-name` | `X-Correlation-Id` | Cabecera heredada compatible. |
 | `include-stacktrace` | `true` | Incluye la traza completa en el backend de logging. |
 | `additional-sensitive-fields` | lista vacía | Añade nombres corporativos a las reglas obligatorias; no permite eliminar las internas. |
 
@@ -249,34 +255,63 @@ Recomendaciones:
 
 ## 9. Correlación y trazabilidad
 
-La librería lee `correlationId` y `traceId` desde MDC. Si la plataforma de observabilidad ya los incorpora, no se necesita configuración adicional.
+La librería gestiona el ID automáticamente en peticiones HTTP:
 
-Un filtro sencillo para `correlationId` podría ser:
+- Si llega un `X-Trace-Id` válido, lo reutiliza.
+- Si no llega, acepta `X-Correlation-Id` como compatibilidad heredada.
+- Si ninguno es válido, genera un UUID nuevo.
+- Guarda el mismo valor en `traceId` y `correlationId` dentro de MDC.
+- Devuelve ambos headers en la respuesta.
+- Restaura el MDC anterior cuando termina la petición.
+
+Los valores externos deben tener entre 8 y 128 caracteres y solo pueden contener letras, números, punto, guion y guion bajo. Cualquier valor con saltos de línea o caracteres no permitidos se descarta y se sustituye por uno nuevo.
+
+### Llamadas entre microservicios
+
+Los clientes `RestClient` y `RestTemplate` creados con los builders autoconfigurados de Spring Boot reciben un interceptor que añade el mismo ID:
 
 ```java
-@Component
-public class CorrelationIdFilter extends OncePerRequestFilter {
-    private static final String HEADER = "X-Correlation-Id";
+@Service
+public class CustomerGateway {
+    private final RestClient restClient;
 
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain chain) throws ServletException, IOException {
-
-        String correlationId = Optional.ofNullable(request.getHeader(HEADER))
-                .filter(value -> !value.isBlank())
-                .orElseGet(() -> UUID.randomUUID().toString());
-
-        try (MDC.MDCCloseable ignored = MDC.putCloseable("correlationId", correlationId)) {
-            response.setHeader(HEADER, correlationId);
-            chain.doFilter(request, response);
-        }
+    public CustomerGateway(RestClient.Builder builder) {
+        this.restClient = builder.baseUrl("http://customers-service").build();
     }
 }
 ```
 
-El identificador recibido debe validarse y limitarse de longitud antes de incorporarlo al MDC en una implementación de producción.
+No se debe crear el cliente con `new RestTemplate()` porque esa instancia no recibe los customizers de Spring Boot. Para Feign, WebClient u otro cliente, usar `TraceContext.currentTraceId()` en su interceptor propio o registrar `TracePropagationInterceptor` cuando el cliente admita `ClientHttpRequestInterceptor`.
+
+### Jobs y consumidores
+
+Abrir un ámbito al comenzar cada unidad de trabajo:
+
+```java
+try (TraceScope scope = traceContext.open(message.getTraceId())) {
+    process(message);
+}
+```
+
+Si el mensaje no contiene un ID:
+
+```java
+try (TraceScope scope = traceContext.open()) {
+    process(message);
+}
+```
+
+`scope.traceId()` devuelve el valor que debe enviarse en los headers del siguiente mensaje.
+
+### Tareas asíncronas
+
+MDC es local al hilo. Para transportar el ID a un `Executor`, envolver la tarea mientras el contexto de origen sigue abierto:
+
+```java
+executor.execute(traceContext.wrap(() -> process(command)));
+```
+
+`wrap` captura el ID actual, abre el mismo contexto en el hilo de destino y restaura su MDC al terminar.
 
 ## 10. Formato del evento
 
