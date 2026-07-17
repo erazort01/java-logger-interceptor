@@ -2,13 +2,13 @@
 
 [Guía de uso en español](GUIA_DE_USO.md)
 
-This guide explains how to integrate `exception-logging-spring-boot-starter` into a Spring Boot microservice and use it for database operations, business rules, remote calls, scheduled jobs, and message consumers.
+This guide explains how to integrate `java-logger-interceptor` into any Spring Boot microservice and use it for database operations, business rules, remote calls, scheduled jobs, and message consumers.
 
 ## 1. Requirements
 
 - Java 17 or later.
 - Spring Boot 3.x.
-- The library published in the corporate Maven repository.
+- The library available from a Maven repository accessible to the service.
 - A unique `spring.application.name` for each microservice.
 
 ## 2. Add the dependency
@@ -16,7 +16,7 @@ This guide explains how to integrate `exception-logging-spring-boot-starter` int
 ```xml
 <dependency>
     <groupId>com.example.platform</groupId>
-    <artifactId>exception-logging-spring-boot-starter</artifactId>
+    <artifactId>java-logger-interceptor</artifactId>
     <version>0.1.0</version>
 </dependency>
 ```
@@ -28,15 +28,18 @@ The starter is automatically configured. No component scan or manual configurati
 ```yaml
 spring:
   application:
-    name: orders-service
+    name: example-service
 
 exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
-    - internalCustomerReference
+    - internalReference
     - legacyCredential
 ```
 
@@ -46,6 +49,9 @@ exception-logging:
 | `application-name` | `spring.application.name` | Overrides the name recorded in events. |
 | `web-handler-enabled` | `true` | Enables uniform HTTP error responses. |
 | `aspect-enabled` | `true` | Enables `@LogFailure` interception. |
+| `trace-propagation-enabled` | `true` | Generates and propagates the HTTP trace context. |
+| `trace-header-name` | `X-Trace-Id` | Canonical trace-ID header. |
+| `correlation-header-name` | `X-Correlation-Id` | Supported legacy correlation header. |
 | `include-stacktrace` | `true` | Adds a sanitized stack trace to the structured event. |
 | `additional-sensitive-fields` | empty | Extends mandatory masking with domain-specific field names. |
 
@@ -57,12 +63,12 @@ Annotate the service method where the application knows the table, operation, an
 
 ```java
 @LogFailure(
-        table = "orders",
+        table = "example_records",
         operation = "INSERT",
         captureArgument = 0
 )
-public Order save(Order order) {
-    return orderRepository.save(order);
+public ExampleRecord save(ExampleRecord record) {
+    return repository.save(record);
 }
 ```
 
@@ -76,8 +82,8 @@ Spring AOP only intercepts calls that pass through a Spring-managed proxy. Self-
 
 ```java
 throw new BusinessException(
-        "ORDER_ALREADY_PAID",
-        "The order has already been paid"
+        "RESOURCE_STATE_INVALID",
+        "The resource is not in a valid state"
 );
 ```
 
@@ -85,8 +91,8 @@ The default HTTP status is `422 Unprocessable Entity`. A custom status can be su
 
 ```java
 throw new BusinessException(
-        "ORDER_NOT_FOUND",
-        "The order was not found",
+        "RESOURCE_NOT_FOUND",
+        "The resource was not found",
         HttpStatus.NOT_FOUND
 );
 ```
@@ -98,9 +104,9 @@ Business codes should remain stable even if the human-readable message changes o
 The default classifier recognizes common Spring client, connection, socket, and timeout exceptions as `CONNECTIVITY`.
 
 ```java
-@LogFailure(operation = "GET_CUSTOMER", captureArgument = 0)
-public Customer findCustomer(UUID customerId) {
-    return customerClient.getCustomer(customerId);
+@LogFailure(operation = "GET_REMOTE_RESOURCE", captureArgument = 0)
+public RemoteResource findRemoteResource(UUID resourceId) {
+    return remoteClient.getResource(resourceId);
 }
 ```
 
@@ -112,22 +118,22 @@ Use the programmatic API for jobs, consumers, listeners, or dynamic context:
 
 ```java
 @Service
-public class PaymentProcessor {
+public class RemoteActionProcessor {
     private final ExceptionReporter exceptionReporter;
 
-    public PaymentProcessor(ExceptionReporter exceptionReporter) {
+    public RemoteActionProcessor(ExceptionReporter exceptionReporter) {
         this.exceptionReporter = exceptionReporter;
     }
 
-    public void process(PaymentCommand command) {
+    public void process(ActionCommand command) {
         try {
-            paymentClient.charge(command);
+            remoteClient.execute(command);
         } catch (RuntimeException error) {
             exceptionReporter.report(error, FailureContext.builder()
-                    .operation("CHARGE_PAYMENT")
+                    .operation("EXECUTE_REMOTE_ACTION")
                     .failedObject(command)
-                    .metadata("provider", "payments")
-                    .metadata("paymentId", command.paymentId())
+                    .metadata("targetService", "remote-service")
+                    .metadata("requestId", command.requestId())
                     .build());
             throw error;
         }
@@ -160,18 +166,18 @@ Select objects deliberately. Full objects can produce large log events and may c
 The library always masks built-in field families such as:
 
 - Passwords, secrets, credentials, tokens, authorization values, and keys.
-- Payment cards, CVV/CVC, PINs, IBANs, and bank accounts.
+- Personal identifiers, contact details, and access codes.
 - Tax, identity, and passport identifiers.
 - Names, e-mail addresses, phone numbers, addresses, and birth dates.
 
-It also detects common sensitive patterns inside arbitrary text, including e-mails, IBANs, payment cards, JWTs, Bearer credentials, and assignments such as `password=...`.
+It also detects common sensitive patterns inside arbitrary text, including e-mails, JWTs, Bearer credentials, and assignments such as `password=...`.
 
 Add domain-specific names without weakening defaults:
 
 ```yaml
 exception-logging:
   additional-sensitive-fields:
-    - customerAlias
+    - internalAlias
     - policyHolderReference
     - legacyCredential
 ```
@@ -180,7 +186,35 @@ Automatic masking reduces risk but cannot infer every possible business meaning.
 
 ## 10. Correlation
 
-`correlationId` and `traceId` are read from MDC. Ensure that an HTTP filter, message interceptor, or tracing platform adds them and clears them correctly after each request or message.
+For inbound HTTP requests, the library reuses a valid `X-Trace-Id`, falls back to `X-Correlation-Id`, or generates a UUID when neither is available. The same value is stored as `traceId` and `correlationId` in MDC, returned in both response headers, and removed when the request scope closes.
+
+Inbound values must contain 8–128 letters, digits, dots, underscores, or hyphens. Unsafe values are rejected and replaced.
+
+Spring Boot-built `RestClient` and `RestTemplate` instances automatically send the current ID downstream:
+
+```java
+public RemoteServiceGateway(RestClient.Builder builder) {
+    this.restClient = builder.baseUrl("http://remote-service").build();
+}
+```
+
+Raw clients created outside the Spring Boot builders do not receive customizers. Feign, WebClient, messaging clients, and other transports can read `TraceContext.currentTraceId()` from their own interceptor.
+
+For a job or message consumer, create or reuse a scope:
+
+```java
+try (TraceScope scope = traceContext.open(message.traceId())) {
+    process(message);
+}
+```
+
+Use `scope.traceId()` as the outgoing message header. For thread-pool work, capture the context before dispatch:
+
+```java
+executor.execute(traceContext.wrap(() -> process(command)));
+```
+
+The wrapper restores the worker thread's previous MDC state after completion.
 
 ## 11. HTTP handling
 
@@ -213,7 +247,7 @@ ExceptionClassifier exceptionClassifier() {
 }
 ```
 
-A service may also provide its own `ExceptionReporter` bean if it needs a corporate event transport or additional fields.
+A service may also provide its own `ExceptionReporter` bean if it needs a custom event transport or additional fields.
 
 ## 13. Troubleshooting
 
@@ -226,7 +260,7 @@ A service may also provide its own `ExceptionReporter` bean if it needs a corpor
 
 ## 14. Integration checklist
 
-- [ ] The dependency comes from the corporate Maven repository.
+- [ ] The dependency comes from the Maven repository configured for the service.
 - [ ] `spring.application.name` uniquely identifies the service.
 - [ ] The service has chosen either the built-in or its own HTTP advice.
 - [ ] Critical operations declare table and operation explicitly.

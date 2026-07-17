@@ -17,7 +17,7 @@ class DefaultExceptionClassifierTest {
 
     @Test
     void classifiesBusinessFailure() {
-        assertThat(classifier.classify(new BusinessException("ORDER_001", "invalid")))
+        assertThat(classifier.classify(new BusinessException("RULE_001", "invalid")))
                 .isEqualTo(ErrorCategory.BUSINESS);
     }
 
@@ -33,4 +33,3 @@ class DefaultExceptionClassifierTest {
                 .isEqualTo(ErrorCategory.UNEXPECTED);
     }
 }
-

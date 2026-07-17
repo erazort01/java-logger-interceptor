@@ -1,14 +1,15 @@
-# Exception Logging Spring Boot Starter
+# Java Logger Interceptor
 
 [English version](README.en.md)
 
-Librería Java para aplicar el mismo tratamiento de excepciones y el mismo formato de logs en microservicios Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
+Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
 
 El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascarado obligatorio. Las reglas internas no pueden desactivarse ni reemplazarse mediante configuración; cada servicio únicamente puede añadir nombres de campos sensibles adicionales.
 
 ## Qué incluye
 
 - Autoconfiguración al añadir la dependencia al microservicio.
+- Generación, reutilización y propagación de un ID de traza entre microservicios.
 - Clasificación extensible mediante `ExceptionClassifier`.
 - Log JSON bajo el logger `exception.audit`, con stack trace saneado y configurable.
 - `BusinessException` con código funcional y estado HTTP.
@@ -19,7 +20,7 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 
 ## Estado actual
 
-MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de desplegarlo en los microservicios hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven corporativo y validarlo en un pequeño grupo piloto.
+MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de utilizarlo en producción hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven correspondiente y validarlo en servicios representativos.
 
 ## Requisitos
 
@@ -40,7 +41,7 @@ Después, añadirlo a cada microservicio:
 ```xml
 <dependency>
     <groupId>com.example.platform</groupId>
-    <artifactId>exception-logging-spring-boot-starter</artifactId>
+    <artifactId>java-logger-interceptor</artifactId>
     <version>0.1.0</version>
 </dependency>
 ```
@@ -52,9 +53,9 @@ El nombre del servicio se toma automáticamente de `spring.application.name`.
 Declarar el contexto donde se conoce la tabla y el objeto que se está procesando:
 
 ```java
-@LogFailure(table = "orders", operation = "INSERT", captureArgument = 0)
-public Order save(Order order) {
-    return repository.save(order);
+@LogFailure(table = "example_records", operation = "INSERT", captureArgument = 0)
+public ExampleRecord save(ExampleRecord record) {
+    return repository.save(record);
 }
 ```
 
@@ -62,12 +63,12 @@ Para un consumidor, job o integración sin AOP:
 
 ```java
 try {
-    paymentClient.charge(command);
+    remoteClient.execute(command);
 } catch (RuntimeException error) {
     exceptionReporter.report(error, FailureContext.builder()
-            .operation("CHARGE_PAYMENT")
+            .operation("EXECUTE_REMOTE_ACTION")
             .failedObject(command)
-            .metadata("provider", "payments")
+            .metadata("targetService", "remote-service")
             .build());
     throw error;
 }
@@ -76,7 +77,7 @@ try {
 Para reglas de negocio:
 
 ```java
-throw new BusinessException("ORDER_ALREADY_PAID", "El pedido ya está pagado");
+throw new BusinessException("RESOURCE_STATE_INVALID", "El recurso no se encuentra en un estado válido");
 ```
 
 ## Configuración
@@ -86,19 +87,22 @@ Configuración segura por defecto:
 ```yaml
 spring:
   application:
-    name: orders-service
+    name: example-service
 
 exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
-    - internalCustomerReference
+    - internalReference
     - legacyCredential
 ```
 
-La lista obligatoria interna cubre credenciales, tokens, claves, datos de pago, identificadores fiscales y personales, nombres, contacto, dirección y fechas de nacimiento. `additional-sensitive-fields` solo amplía esa protección. No existe una propiedad para desactivar el enmascarado ni para eliminar reglas obligatorias.
+La lista obligatoria interna cubre credenciales, tokens, claves, identificadores personales, nombres, contacto, dirección y fechas de nacimiento. `additional-sensitive-fields` solo amplía esa protección. No existe una propiedad para desactivar el enmascarado ni para eliminar reglas obligatorias.
 
 ## Formato del log
 
@@ -106,21 +110,21 @@ Ejemplo abreviado:
 
 ```json
 {
-  "microservice": "orders-service",
+  "microservice": "example-service",
   "category": "DATABASE",
   "exceptionType": "org.springframework.dao.DataIntegrityViolationException",
   "message": "duplicate key",
   "rootCause": "duplicate key value violates unique constraint",
-  "table": "orders",
+  "table": "example_records",
   "operation": "INSERT",
   "correlationId": "req-7f8a",
   "traceId": "a4c31d",
   "metadata": {
-    "method": "OrderService.save(..)",
-    "failedObjectType": "com.example.Order",
+    "method": "ExampleService.save(..)",
+    "failedObjectType": "com.example.ExampleRecord",
     "failedObject": {
       "id": 42,
-      "customerName": "[REDACTED]",
+      "ownerName": "[REDACTED]",
       "token": "[REDACTED]"
     }
   },
@@ -128,7 +132,17 @@ Ejemplo abreviado:
 }
 ```
 
-Los valores `correlationId` y `traceId` se leen de MDC. El gateway, filtro HTTP o plataforma de trazas debe poblarlos.
+La librería genera automáticamente un ID cuando la petición no lo trae, reutiliza un `X-Trace-Id` válido, lo almacena en MDC, lo devuelve en la respuesta y lo propaga en clientes `RestClient` y `RestTemplate` construidos mediante Spring Boot. `X-Correlation-Id` se admite como cabecera heredada y se mantiene sincronizada con el ID de traza.
+
+Para jobs, consumidores o tareas asíncronas:
+
+```java
+try (TraceScope scope = traceContext.open()) {
+    executor.execute(traceContext.wrap(() -> process(command)));
+}
+```
+
+El ámbito restaura el MDC anterior al cerrarse, evitando reutilizar accidentalmente una traza en otro trabajo del mismo hilo.
 
 ## Extensión por microservicio
 
@@ -150,13 +164,13 @@ exception-logging:
   web-handler-enabled: false
 ```
 
-## Adopción en microservicios
+## Adopción en microservicios Spring Boot
 
 1. Publicar una versión inmutable en el repositorio Maven interno.
 2. Probarla en 3–5 servicios representativos: JDBC/JPA, integraciones HTTP y mensajería.
 3. Validar el esquema JSON con la plataforma de logs y crear dashboards por `category`, `microservice` y `errorCode`.
-4. Acordar la política corporativa de campos sensibles y retención.
-5. Incorporarla mediante el BOM o parent POM corporativo.
+4. Acordar la política de campos sensibles y retención del entorno de destino.
+5. Incorporarla mediante un BOM o parent POM cuando resulte conveniente.
 6. Desplegar por oleadas y medir duplicados, volumen de logs y tiempo de respuesta.
 
 ## Verificación

@@ -2,13 +2,13 @@
 
 [English usage guide](USAGE_GUIDE.md)
 
-Esta guía explica cómo integrar `exception-logging-spring-boot-starter` en un microservicio Spring Boot y cómo utilizarlo en operaciones de base de datos, reglas de negocio, llamadas remotas, consumidores y procesos programados.
+Esta guía explica cómo integrar `java-logger-interceptor` en cualquier microservicio Spring Boot y cómo utilizarlo en operaciones de base de datos, reglas de negocio, llamadas remotas, consumidores y procesos programados.
 
 ## 1. Requisitos
 
 - Java 17 o superior.
 - Spring Boot 3.x.
-- El artefacto publicado en el repositorio Maven corporativo.
+- El artefacto disponible en un repositorio Maven accesible para el microservicio.
 - Un valor único en `spring.application.name` para cada microservicio.
 
 ## 2. Añadir la dependencia
@@ -18,14 +18,14 @@ Después de publicar la librería en Nexus o Artifactory, añadirla al `pom.xml`
 ```xml
 <dependency>
     <groupId>com.example.platform</groupId>
-    <artifactId>exception-logging-spring-boot-starter</artifactId>
+    <artifactId>java-logger-interceptor</artifactId>
     <version>0.1.0</version>
 </dependency>
 ```
 
 La librería se configura automáticamente. No es necesario añadir `@ComponentScan` ni importar manualmente su configuración.
 
-Antes de distribuirla en la organización se deben sustituir el `groupId`, la versión y el repositorio de ejemplo por los valores corporativos.
+Antes de distribuirla se deben sustituir el `groupId`, la versión y el repositorio de ejemplo por los valores del entorno de destino.
 
 ## 3. Configuración mínima
 
@@ -34,7 +34,7 @@ Definir el nombre del microservicio:
 ```yaml
 spring:
   application:
-    name: orders-service
+    name: example-service
 ```
 
 Este valor aparecerá en `microservice` dentro de todos los eventos. Si no existe, se utilizará `unknown-service`, lo que dificultará identificar el origen del fallo.
@@ -44,15 +44,18 @@ La configuración completa recomendada es:
 ```yaml
 spring:
   application:
-    name: orders-service
+    name: example-service
 
 exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
+  trace-propagation-enabled: true
+  trace-header-name: X-Trace-Id
+  correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
-    - internalCustomerReference
+    - internalReference
     - legacyCredential
 ```
 
@@ -64,8 +67,11 @@ exception-logging:
 | `application-name` | `spring.application.name` | Permite sobrescribir el nombre mostrado en los logs. |
 | `web-handler-enabled` | `true` | Activa las respuestas HTTP uniformes. |
 | `aspect-enabled` | `true` | Activa el procesamiento de `@LogFailure`. |
+| `trace-propagation-enabled` | `true` | Genera y propaga el contexto de traza HTTP. |
+| `trace-header-name` | `X-Trace-Id` | Cabecera canónica del ID de traza. |
+| `correlation-header-name` | `X-Correlation-Id` | Cabecera heredada compatible. |
 | `include-stacktrace` | `true` | Incluye la traza completa en el backend de logging. |
-| `additional-sensitive-fields` | lista vacía | Añade nombres corporativos a las reglas obligatorias; no permite eliminar las internas. |
+| `additional-sensitive-fields` | lista vacía | Añade nombres específicos del dominio a las reglas obligatorias; no permite eliminar las internas. |
 
 No existe ninguna propiedad que desactive el enmascarado. El objeto seleccionado, los metadatos, los mensajes de excepción y el stack trace se sanean siempre.
 
@@ -77,16 +83,16 @@ Anotar el método de servicio donde se conoce la tabla, la operación y el objet
 import com.example.platform.exceptionlogging.LogFailure;
 
 @LogFailure(
-        table = "orders",
+        table = "example_records",
         operation = "INSERT",
         captureArgument = 0
 )
-public Order save(Order order) {
-    return orderRepository.save(order);
+public ExampleRecord save(ExampleRecord record) {
+    return repository.save(record);
 }
 ```
 
-Si `orderRepository.save` provoca una excepción Spring `DataAccessException` o una `SQLException`, el evento tendrá la categoría `DATABASE`.
+Si `repository.save` provoca una excepción Spring `DataAccessException` o una `SQLException`, el evento tendrá la categoría `DATABASE`.
 
 `captureArgument = 0` hace referencia al primer argumento del método. El índice empieza en cero:
 
@@ -99,14 +105,14 @@ El nombre de la tabla es explícito. La librería no intenta deducirlo analizand
 ### Actualización y borrado
 
 ```java
-@LogFailure(table = "customers", operation = "UPDATE", captureArgument = 0)
-public Customer update(Customer customer) {
-    return repository.save(customer);
+@LogFailure(table = "example_records", operation = "UPDATE", captureArgument = 0)
+public ExampleRecord update(ExampleRecord record) {
+    return repository.save(record);
 }
 
-@LogFailure(table = "customers", operation = "DELETE", captureArgument = 0)
-public void delete(UUID customerId) {
-    repository.deleteById(customerId);
+@LogFailure(table = "example_records", operation = "DELETE", captureArgument = 0)
+public void delete(UUID recordId) {
+    repository.deleteById(recordId);
 }
 ```
 
@@ -121,10 +127,10 @@ Lanzar `BusinessException` con un código estable y un mensaje comprensible:
 ```java
 import com.example.platform.exceptionlogging.BusinessException;
 
-if (order.isPaid()) {
+if (!resource.canTransition()) {
     throw new BusinessException(
-            "ORDER_ALREADY_PAID",
-            "El pedido ya está pagado"
+            "RESOURCE_STATE_INVALID",
+            "El recurso no se encuentra en un estado válido"
     );
 }
 ```
@@ -135,8 +141,8 @@ Se puede indicar otro estado:
 
 ```java
 throw new BusinessException(
-        "ORDER_NOT_FOUND",
-        "No se ha encontrado el pedido",
+        "RESOURCE_NOT_FOUND",
+        "No se ha encontrado el recurso",
         HttpStatus.NOT_FOUND
 );
 ```
@@ -147,8 +153,8 @@ Respuesta HTTP aproximada:
 {
   "timestamp": "2026-07-17T18:30:00Z",
   "status": 404,
-  "code": "ORDER_NOT_FOUND",
-  "message": "No se ha encontrado el pedido",
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "No se ha encontrado el recurso",
   "correlationId": "req-7f8a"
 }
 ```
@@ -168,9 +174,9 @@ Las excepciones de clientes Spring y las causas de red más comunes se clasifica
 Ejemplo con contexto explícito:
 
 ```java
-@LogFailure(operation = "GET_CUSTOMER", captureArgument = 0)
-public Customer findCustomer(UUID customerId) {
-    return customerClient.getCustomer(customerId);
+@LogFailure(operation = "GET_REMOTE_RESOURCE", captureArgument = 0)
+public RemoteResource findRemoteResource(UUID resourceId) {
+    return remoteClient.getResource(resourceId);
 }
 ```
 
@@ -185,22 +191,22 @@ import com.example.platform.exceptionlogging.ExceptionReporter;
 import com.example.platform.exceptionlogging.FailureContext;
 
 @Service
-public class PaymentProcessor {
+public class RemoteActionProcessor {
     private final ExceptionReporter exceptionReporter;
 
-    public PaymentProcessor(ExceptionReporter exceptionReporter) {
+    public RemoteActionProcessor(ExceptionReporter exceptionReporter) {
         this.exceptionReporter = exceptionReporter;
     }
 
-    public void process(PaymentCommand command) {
+    public void process(ActionCommand command) {
         try {
-            paymentClient.charge(command);
+            remoteClient.execute(command);
         } catch (RuntimeException error) {
             exceptionReporter.report(error, FailureContext.builder()
-                    .operation("CHARGE_PAYMENT")
+                    .operation("EXECUTE_REMOTE_ACTION")
                     .failedObject(command)
-                    .metadata("provider", "payments")
-                    .metadata("paymentId", command.paymentId())
+                    .metadata("targetService", "remote-service")
+                    .metadata("requestId", command.requestId())
                     .build());
             throw error;
         }
@@ -223,7 +229,7 @@ Para adjuntar el objeto relacionado hay que seleccionarlo con `captureArgument` 
 ```yaml
 exception-logging:
   additional-sensitive-fields:
-    - customerAlias
+    - internalAlias
     - legacyCredential
 ```
 
@@ -231,52 +237,81 @@ Ejemplo de resultado:
 
 ```json
 {
-  "id": "order-123",
-  "customer": "customer-42",
+  "id": "record-123",
+  "owner": "user-42",
   "accessToken": "[REDACTED]"
 }
 ```
 
-La ocultación se aplica de forma recursiva y sin distinguir mayúsculas. Las reglas obligatorias cubren credenciales, tokens, claves, datos bancarios y de pago, identificadores fiscales y personales, nombres, datos de contacto, direcciones y fechas de nacimiento. También se enmascaran patrones sensibles en texto libre, como correos, IBAN, tarjetas, JWT y cabeceras Bearer.
+La ocultación se aplica de forma recursiva y sin distinguir mayúsculas. Las reglas obligatorias cubren credenciales, tokens, claves, identificadores personales, nombres, datos de contacto, direcciones y fechas de nacimiento. También se enmascaran patrones sensibles en texto libre, como correos, JWT y cabeceras Bearer.
 
 Recomendaciones:
 
 - Preferir comandos o DTO pequeños frente a entidades completas.
-- No registrar contraseñas, credenciales, documentos, información sanitaria ni datos de tarjeta.
+- No registrar contraseñas, credenciales, documentos ni información personal que no sea necesaria para diagnosticar el fallo.
 - Añadir a `additional-sensitive-fields` cualquier nombre propio del dominio que pueda contener información sensible.
 - No suponer que un sistema automático puede reconocer cualquier dato sensible con independencia del nombre y del formato.
 - No seleccionar un objeto si no aporta valor de diagnóstico; cuando se selecciona, se incorpora completo en `metadata`.
 
 ## 9. Correlación y trazabilidad
 
-La librería lee `correlationId` y `traceId` desde MDC. Si la plataforma de observabilidad ya los incorpora, no se necesita configuración adicional.
+La librería gestiona el ID automáticamente en peticiones HTTP:
 
-Un filtro sencillo para `correlationId` podría ser:
+- Si llega un `X-Trace-Id` válido, lo reutiliza.
+- Si no llega, acepta `X-Correlation-Id` como compatibilidad heredada.
+- Si ninguno es válido, genera un UUID nuevo.
+- Guarda el mismo valor en `traceId` y `correlationId` dentro de MDC.
+- Devuelve ambos headers en la respuesta.
+- Restaura el MDC anterior cuando termina la petición.
+
+Los valores externos deben tener entre 8 y 128 caracteres y solo pueden contener letras, números, punto, guion y guion bajo. Cualquier valor con saltos de línea o caracteres no permitidos se descarta y se sustituye por uno nuevo.
+
+### Llamadas entre microservicios
+
+Los clientes `RestClient` y `RestTemplate` creados con los builders autoconfigurados de Spring Boot reciben un interceptor que añade el mismo ID:
 
 ```java
-@Component
-public class CorrelationIdFilter extends OncePerRequestFilter {
-    private static final String HEADER = "X-Correlation-Id";
+@Service
+public class RemoteServiceGateway {
+    private final RestClient restClient;
 
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain chain) throws ServletException, IOException {
-
-        String correlationId = Optional.ofNullable(request.getHeader(HEADER))
-                .filter(value -> !value.isBlank())
-                .orElseGet(() -> UUID.randomUUID().toString());
-
-        try (MDC.MDCCloseable ignored = MDC.putCloseable("correlationId", correlationId)) {
-            response.setHeader(HEADER, correlationId);
-            chain.doFilter(request, response);
-        }
+    public RemoteServiceGateway(RestClient.Builder builder) {
+        this.restClient = builder.baseUrl("http://remote-service").build();
     }
 }
 ```
 
-El identificador recibido debe validarse y limitarse de longitud antes de incorporarlo al MDC en una implementación de producción.
+No se debe crear el cliente con `new RestTemplate()` porque esa instancia no recibe los customizers de Spring Boot. Para Feign, WebClient u otro cliente, usar `TraceContext.currentTraceId()` en su interceptor propio o registrar `TracePropagationInterceptor` cuando el cliente admita `ClientHttpRequestInterceptor`.
+
+### Jobs y consumidores
+
+Abrir un ámbito al comenzar cada unidad de trabajo:
+
+```java
+try (TraceScope scope = traceContext.open(message.getTraceId())) {
+    process(message);
+}
+```
+
+Si el mensaje no contiene un ID:
+
+```java
+try (TraceScope scope = traceContext.open()) {
+    process(message);
+}
+```
+
+`scope.traceId()` devuelve el valor que debe enviarse en los headers del siguiente mensaje.
+
+### Tareas asíncronas
+
+MDC es local al hilo. Para transportar el ID a un `Executor`, envolver la tarea mientras el contexto de origen sigue abierto:
+
+```java
+executor.execute(traceContext.wrap(() -> process(command)));
+```
+
+`wrap` captura el ID actual, abre el mismo contexto en el hilo de destino y restaura su MDC al terminar.
 
 ## 10. Formato del evento
 
@@ -285,22 +320,22 @@ El logger dedicado es `exception.audit`. Un evento puede tener este aspecto:
 ```json
 {
   "timestamp": "2026-07-17T18:30:00Z",
-  "microservice": "orders-service",
+  "microservice": "example-service",
   "category": "DATABASE",
   "errorCode": null,
   "exceptionType": "org.springframework.dao.DataIntegrityViolationException",
   "message": "duplicate key",
   "rootCause": "duplicate key value violates unique constraint",
-  "table": "orders",
+  "table": "example_records",
   "operation": "INSERT",
   "correlationId": "req-7f8a",
   "traceId": "a4c31d",
   "metadata": {
-    "method": "OrderService.save(..)",
-    "failedObjectType": "com.example.orders.OrderCommand",
+    "method": "ExampleService.save(..)",
+    "failedObjectType": "com.example.ExampleCommand",
     "failedObject": {
-      "id": "order-123",
-      "customerName": "[REDACTED]",
+      "id": "record-123",
+      "ownerName": "[REDACTED]",
       "token": "[REDACTED]"
     }
   },
@@ -368,7 +403,7 @@ public class ExceptionClassificationConfiguration {
 }
 ```
 
-También se puede sustituir completamente `ExceptionReporter` creando un bean propio, por ejemplo para emitir eventos a una cola o añadir campos corporativos.
+También se puede sustituir completamente `ExceptionReporter` creando un bean propio, por ejemplo para emitir eventos a una cola o añadir campos personalizados.
 
 ## 13. Evitar logs duplicados
 
@@ -377,7 +412,7 @@ La librería identifica la misma instancia de excepción y solo la registra una 
 Si una aplicación captura una excepción y crea otra instancia sin conservar la causa, la nueva excepción se considera distinta. Lo correcto es conservar la cadena causal:
 
 ```java
-throw new OrderPersistenceException("No se pudo guardar el pedido", originalError);
+throw new ResourcePersistenceException("No se pudo guardar el recurso", originalError);
 ```
 
 ## 14. Problemas frecuentes
@@ -408,7 +443,7 @@ Añadir el nombre del campo a `additional-sensitive-fields`. La comparación ign
 
 ## 15. Lista de comprobación de integración
 
-- [ ] La dependencia procede del repositorio Maven corporativo.
+- [ ] La dependencia procede del repositorio Maven configurado para el servicio.
 - [ ] `spring.application.name` identifica de forma única el servicio.
 - [ ] Se ha decidido si se utilizará el manejador HTTP de la librería o el existente.
 - [ ] Las operaciones críticas llevan tabla y operación explícitas.
@@ -424,7 +459,7 @@ Añadir el nombre del campo a `additional-sensitive-fields`. La comparación ign
 Crear temporalmente un método de prueba:
 
 ```java
-@LogFailure(table = "orders", operation = "TEST", captureArgument = 0)
+@LogFailure(table = "example_records", operation = "TEST", captureArgument = 0)
 public void simulateFailure(Map<String, Object> input) {
     throw new IllegalStateException("Fallo controlado de prueba");
 }
@@ -433,14 +468,14 @@ public void simulateFailure(Map<String, Object> input) {
 Invocarlo con:
 
 ```java
-Map.of("orderId", "order-123", "token", "secret-value")
+Map.of("recordId", "record-123", "token", "secret-value")
 ```
 
 Verificar que:
 
 - `microservice` coincide con el servicio.
 - La categoría es `UNEXPECTED`.
-- La tabla es `orders`.
+- La tabla es `example_records`.
 - El objeto aparece dentro de `metadata.failedObject` y el token figura como `[REDACTED]`.
 - La API devuelve un mensaje genérico y no el detalle técnico.
 

@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example.platform</groupId>
-    <artifactId>exception-logging-spring-boot-starter</artifactId>
+    <artifactId>java-logger-interceptor</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>Exception Logging Spring Boot Starter</name>
-    <description>Tratamiento y logging estructurado de excepciones para microservicios</description>
+    <name>Java Logger Interceptor</name>
+    <description>Logging estructurado, tratamiento de excepciones y propagación de trazas para Spring Boot</description>
 
     <properties>
         <java.version>17</java.version>
@@ -46,6 +46,11 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>

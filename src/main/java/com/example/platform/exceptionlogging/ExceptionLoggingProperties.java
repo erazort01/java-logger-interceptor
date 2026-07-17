@@ -11,6 +11,9 @@ public class ExceptionLoggingProperties {
     private String applicationName;
     private boolean webHandlerEnabled = true;
     private boolean aspectEnabled = true;
+    private boolean tracePropagationEnabled = true;
+    private String traceHeaderName = "X-Trace-Id";
+    private String correlationHeaderName = "X-Correlation-Id";
     private boolean includeStacktrace = true;
     private Set<String> additionalSensitiveFields = new LinkedHashSet<>();
 
@@ -22,6 +25,16 @@ public class ExceptionLoggingProperties {
     public void setWebHandlerEnabled(boolean webHandlerEnabled) { this.webHandlerEnabled = webHandlerEnabled; }
     public boolean isAspectEnabled() { return aspectEnabled; }
     public void setAspectEnabled(boolean aspectEnabled) { this.aspectEnabled = aspectEnabled; }
+    public boolean isTracePropagationEnabled() { return tracePropagationEnabled; }
+    public void setTracePropagationEnabled(boolean tracePropagationEnabled) {
+        this.tracePropagationEnabled = tracePropagationEnabled;
+    }
+    public String getTraceHeaderName() { return traceHeaderName; }
+    public void setTraceHeaderName(String traceHeaderName) { this.traceHeaderName = traceHeaderName; }
+    public String getCorrelationHeaderName() { return correlationHeaderName; }
+    public void setCorrelationHeaderName(String correlationHeaderName) {
+        this.correlationHeaderName = correlationHeaderName;
+    }
     public boolean isIncludeStacktrace() { return includeStacktrace; }
     public void setIncludeStacktrace(boolean includeStacktrace) { this.includeStacktrace = includeStacktrace; }
     public Set<String> getAdditionalSensitiveFields() { return additionalSensitiveFields; }

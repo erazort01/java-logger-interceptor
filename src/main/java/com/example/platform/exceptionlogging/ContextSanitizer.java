@@ -15,22 +15,18 @@ final class ContextSanitizer {
     private static final Set<String> MANDATORY_SENSITIVE_FIELDS = Set.of(
             "password", "passwd", "pwd", "secret", "token", "accesstoken", "refreshtoken",
             "authorization", "apikey", "privatekey", "accesskey", "clientsecret", "credential",
-            "cvv", "cvc", "pin", "iban", "bankaccount", "cardnumber", "creditcard", "ssn",
+            "pin", "ssn",
             "nif", "nie", "passport", "email", "phone", "mobile", "address", "name",
             "birthdate", "dateofbirth", "taxid", "documentnumber", "ipaddress", "geolocation");
     private static final Pattern EMAIL = Pattern.compile(
             "(?i)(?<![\\w.+-])[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}(?![\\w.-])");
-    private static final Pattern IBAN = Pattern.compile(
-            "(?i)\\b[A-Z]{2}\\d{2}(?:[ ]?[A-Z0-9]){11,30}\\b");
-    private static final Pattern PAYMENT_CARD = Pattern.compile(
-            "(?<!\\d)(?:\\d[ -]?){13,19}(?!\\d)");
     private static final Pattern BEARER = Pattern.compile(
             "(?i)\\bBearer\\s+[A-Za-z0-9._~+/=-]+");
     private static final Pattern JWT = Pattern.compile(
             "\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b");
     private static final Pattern SENSITIVE_ASSIGNMENT = Pattern.compile(
             "(?i)\\b(password|passwd|pwd|secret|token|access[_-]?token|refresh[_-]?token|"
-                    + "authorization|api[_-]?key|private[_-]?key|client[_-]?secret|cvv|cvc|pin|iban)"
+                    + "authorization|api[_-]?key|private[_-]?key|client[_-]?secret|pin)"
                     + "\\s*[:=]\\s*[^\\s,;]+"
     );
 
@@ -64,8 +60,6 @@ final class ContextSanitizer {
             return null;
         }
         String sanitized = replace(EMAIL, value);
-        sanitized = replace(IBAN, sanitized);
-        sanitized = replace(PAYMENT_CARD, sanitized);
         sanitized = replace(BEARER, sanitized);
         sanitized = replace(JWT, sanitized);
         return SENSITIVE_ASSIGNMENT.matcher(sanitized).replaceAll("$1=" + REDACTED);
