@@ -2,9 +2,7 @@
 
 [English version](README.en.md)
 
-
-Librería Java para aplicar el mismo tratamiento de excepciones y el mismo formato de logs en microservicios Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
-
+Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
 
 El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascarado obligatorio. Las reglas internas no pueden desactivarse ni reemplazarse mediante configuración; cada servicio únicamente puede añadir nombres de campos sensibles adicionales.
 
@@ -23,7 +21,6 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 ## Estado actual
 
 MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de utilizarlo en producción hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven correspondiente y validarlo en servicios representativos.
-
 
 ## Requisitos
 
@@ -168,7 +165,6 @@ exception-logging:
 ```
 
 ## Adopción en microservicios Spring Boot
-
 
 1. Publicar una versión inmutable en el repositorio Maven interno.
 2. Probarla en 3–5 servicios representativos: JDBC/JPA, integraciones HTTP y mensajería.
