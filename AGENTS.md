@@ -51,7 +51,8 @@ Ambos deben acordar objetivos, restricciones, riesgos y esquema del evento antes
 - Trabajar en ramas `feature/<descripcion>` y no directamente sobre `main`.
 - Mantener compatibilidad binaria de la API pública o elevar la versión mayor.
 - No añadir campos obligatorios al evento sin estrategia de compatibilidad.
-- No registrar cuerpos u objetos por defecto ni debilitar el saneado sin revisión de seguridad.
+- No introducir ninguna vía de configuración que desactive, sustituya o reduzca el saneado obligatorio.
+- Mantener el objeto relacionado dentro de `metadata` y sanear también mensajes y stack traces.
 - Evitar dependencias obligatorias de un ORM, driver, proveedor o backend de logging concreto.
 - Mantener `README.md` y `ARQUITECTURA.md` sincronizados con el código.
 - Añadir pruebas proporcionales a clasificación, serialización, autoconfiguración y compatibilidad modificadas.

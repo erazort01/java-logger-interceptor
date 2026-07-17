@@ -1,17 +1,19 @@
 # Exception Logging Spring Boot Starter
 
-Librería Java para aplicar el mismo tratamiento de excepciones y el mismo formato de logs en muchos microservicios Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; y puede adjuntar una copia saneada del objeto relacionado con el fallo.
+[English version](README.en.md)
 
-El objeto no se registra por defecto. Cuando se activa, los campos sensibles se ocultan y el contenido se limita de tamaño para reducir el riesgo de exponer contraseñas, tokens o datos personales.
+Librería Java para aplicar el mismo tratamiento de excepciones y el mismo formato de logs en muchos microservicios Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
+
+El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascarado obligatorio. Las reglas internas no pueden desactivarse ni reemplazarse mediante configuración; cada servicio únicamente puede añadir nombres de campos sensibles adicionales.
 
 ## Qué incluye
 
 - Autoconfiguración al añadir la dependencia al microservicio.
 - Clasificación extensible mediante `ExceptionClassifier`.
-- Log JSON bajo el logger `exception.audit`, con stack trace configurable.
+- Log JSON bajo el logger `exception.audit`, con stack trace saneado y configurable.
 - `BusinessException` con código funcional y estado HTTP.
 - Respuesta HTTP uniforme sin devolver detalles técnicos internos.
-- Anotación `@LogFailure` para declarar tabla, operación y argumento relacionado.
+- Anotación `@LogFailure` para declarar tabla, operación y argumento que se incorporará completo a `metadata`.
 - API `ExceptionReporter` para procesos asíncronos, consumidores, jobs y casos no HTTP.
 - Deduplicación de una misma instancia de excepción.
 
@@ -90,18 +92,13 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
-  capture-object: false
   include-stacktrace: true
-  max-object-length: 4000
-  sensitive-fields:
-    - password
-    - token
-    - authorization
-    - secret
-    - iban
+  additional-sensitive-fields:
+    - internalCustomerReference
+    - legacyCredential
 ```
 
-Activar `capture-object` solo en servicios y casos revisados. La lista de campos sensibles debe ampliarse según el modelo de datos de la organización. Nunca se deben adjuntar entidades completas que contengan información sanitaria, financiera, credenciales o datos personales no necesarios.
+La lista obligatoria interna cubre credenciales, tokens, claves, datos de pago, identificadores fiscales y personales, nombres, contacto, dirección y fechas de nacimiento. `additional-sensitive-fields` solo amplía esa protección. No existe una propiedad para desactivar el enmascarado ni para eliminar reglas obligatorias.
 
 ## Formato del log
 
@@ -118,8 +115,16 @@ Ejemplo abreviado:
   "operation": "INSERT",
   "correlationId": "req-7f8a",
   "traceId": "a4c31d",
-  "objectType": "com.example.Order",
-  "objectSnapshot": {"id": 42, "token": "[REDACTED]"}
+  "metadata": {
+    "method": "OrderService.save(..)",
+    "failedObjectType": "com.example.Order",
+    "failedObject": {
+      "id": 42,
+      "customerName": "[REDACTED]",
+      "token": "[REDACTED]"
+    }
+  },
+  "stackTrace": "java.lang.IllegalStateException: ..."
 }
 ```
 
@@ -168,4 +173,4 @@ src/main/resources/  registro del starter de Spring Boot
 src/test/java/       pruebas de clasificación, saneado y autoconfiguración
 ```
 
-Consulta [GUIA_DE_USO.md](GUIA_DE_USO.md) para la integración detallada, [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.
+Consulta [GUIA_DE_USO.md](GUIA_DE_USO.md) para la integración detallada en español, [USAGE_GUIDE.md](USAGE_GUIDE.md) para la guía en inglés, [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.

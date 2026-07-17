@@ -1,5 +1,7 @@
 # Guía de uso
 
+[English usage guide](USAGE_GUIDE.md)
+
 Esta guía explica cómo integrar `exception-logging-spring-boot-starter` en un microservicio Spring Boot y cómo utilizarlo en operaciones de base de datos, reglas de negocio, llamadas remotas, consumidores y procesos programados.
 
 ## 1. Requisitos
@@ -48,20 +50,10 @@ exception-logging:
   enabled: true
   web-handler-enabled: true
   aspect-enabled: true
-  capture-object: false
   include-stacktrace: true
-  max-object-length: 4000
-  sensitive-fields:
-    - password
-    - passwd
-    - secret
-    - token
-    - authorization
-    - apiKey
-    - creditCard
-    - cvv
-    - iban
-    - ssn
+  additional-sensitive-fields:
+    - internalCustomerReference
+    - legacyCredential
 ```
 
 ### Propiedades disponibles
@@ -72,10 +64,10 @@ exception-logging:
 | `application-name` | `spring.application.name` | Permite sobrescribir el nombre mostrado en los logs. |
 | `web-handler-enabled` | `true` | Activa las respuestas HTTP uniformes. |
 | `aspect-enabled` | `true` | Activa el procesamiento de `@LogFailure`. |
-| `capture-object` | `false` | Permite incorporar al log el argumento indicado en la anotación o el objeto del contexto. |
 | `include-stacktrace` | `true` | Incluye la traza completa en el backend de logging. |
-| `max-object-length` | `4000` | Limita el JSON del objeto; si se supera, se trunca. |
-| `sensitive-fields` | lista segura inicial | Nombres de campos que se sustituyen por `[REDACTED]`. |
+| `additional-sensitive-fields` | lista vacía | Añade nombres corporativos a las reglas obligatorias; no permite eliminar las internas. |
+
+No existe ninguna propiedad que desactive el enmascarado. El objeto seleccionado, los metadatos, los mensajes de excepción y el stack trace se sanean siempre.
 
 ## 4. Uso en operaciones de base de datos
 
@@ -224,23 +216,15 @@ Para registrar una excepción sin contexto adicional:
 exceptionReporter.report(error);
 ```
 
-## 8. Captura segura del objeto
+## 8. Incorporación segura del objeto en metadata
 
-Para adjuntar el objeto relacionado hay que cumplir dos condiciones:
-
-1. Activar globalmente `exception-logging.capture-object=true`.
-2. Seleccionar un argumento con `captureArgument` o proporcionar `failedObject` mediante `FailureContext`.
+Para adjuntar el objeto relacionado hay que seleccionarlo con `captureArgument` o proporcionar `failedObject` mediante `FailureContext`. No es necesaria ni existe una opción global de activación.
 
 ```yaml
 exception-logging:
-  capture-object: true
-  max-object-length: 4000
-  sensitive-fields:
-    - password
-    - accessToken
-    - refreshToken
-    - authorization
-    - iban
+  additional-sensitive-fields:
+    - customerAlias
+    - legacyCredential
 ```
 
 Ejemplo de resultado:
@@ -253,15 +237,15 @@ Ejemplo de resultado:
 }
 ```
 
-La ocultación se aplica de forma recursiva y sin distinguir mayúsculas. Si el JSON supera el límite, se convierte en texto truncado terminado en `[TRUNCATED]`.
+La ocultación se aplica de forma recursiva y sin distinguir mayúsculas. Las reglas obligatorias cubren credenciales, tokens, claves, datos bancarios y de pago, identificadores fiscales y personales, nombres, datos de contacto, direcciones y fechas de nacimiento. También se enmascaran patrones sensibles en texto libre, como correos, IBAN, tarjetas, JWT y cabeceras Bearer.
 
 Recomendaciones:
 
 - Preferir comandos o DTO pequeños frente a entidades completas.
 - No registrar contraseñas, credenciales, documentos, información sanitaria ni datos de tarjeta.
-- Añadir a `sensitive-fields` todos los nombres utilizados por cada dominio.
-- No suponer que el saneado por nombre de campo cubre cualquier dato personal.
-- Desactivar la captura en servicios donde no sea necesaria.
+- Añadir a `additional-sensitive-fields` cualquier nombre propio del dominio que pueda contener información sensible.
+- No suponer que un sistema automático puede reconocer cualquier dato sensible con independencia del nombre y del formato.
+- No seleccionar un objeto si no aporta valor de diagnóstico; cuando se selecciona, se incorpora completo en `metadata`.
 
 ## 9. Correlación y trazabilidad
 
@@ -311,14 +295,16 @@ El logger dedicado es `exception.audit`. Un evento puede tener este aspecto:
   "operation": "INSERT",
   "correlationId": "req-7f8a",
   "traceId": "a4c31d",
-  "objectType": "com.example.orders.OrderCommand",
-  "objectSnapshot": {
-    "id": "order-123",
-    "token": "[REDACTED]"
-  },
   "metadata": {
-    "method": "OrderService.save(..)"
-  }
+    "method": "OrderService.save(..)",
+    "failedObjectType": "com.example.orders.OrderCommand",
+    "failedObject": {
+      "id": "order-123",
+      "customerName": "[REDACTED]",
+      "token": "[REDACTED]"
+    }
+  },
+  "stackTrace": "java.lang.IllegalStateException: ..."
 }
 ```
 
@@ -406,7 +392,7 @@ La tabla solo se conoce cuando se proporciona en `@LogFailure(table = "...")` o 
 
 ### El objeto aparece como `null`
 
-Comprobar que `capture-object` está activado y que `captureArgument` apunta a un índice válido, o que se ha indicado `failedObject`.
+Comprobar que `captureArgument` apunta a un índice válido, o que se ha indicado `failedObject`.
 
 ### La anotación no registra nada
 
@@ -418,7 +404,7 @@ Configurar `exception-logging.web-handler-enabled=false` y conservar el manejado
 
 ### Un dato sensible no se oculta
 
-Añadir el nombre exacto del campo a `sensitive-fields`. La comparación ignora mayúsculas, pero no reconoce automáticamente sinónimos ni el significado del contenido.
+Añadir el nombre del campo a `additional-sensitive-fields`. La comparación ignora mayúsculas y separadores, pero ningún sistema automático puede reconocer todos los significados posibles de un campo arbitrario.
 
 ## 15. Lista de comprobación de integración
 
@@ -426,8 +412,8 @@ Añadir el nombre exacto del campo a `sensitive-fields`. La comparación ignora 
 - [ ] `spring.application.name` identifica de forma única el servicio.
 - [ ] Se ha decidido si se utilizará el manejador HTTP de la librería o el existente.
 - [ ] Las operaciones críticas llevan tabla y operación explícitas.
-- [ ] La captura de objetos permanece desactivada o ha pasado revisión de seguridad.
-- [ ] La lista de campos sensibles está adaptada al dominio.
+- [ ] Los objetos seleccionados son necesarios para diagnosticar el fallo y han pasado revisión de seguridad.
+- [ ] `additional-sensitive-fields` está adaptado al dominio sin intentar sustituir las reglas obligatorias.
 - [ ] `correlationId` y `traceId` llegan al MDC.
 - [ ] Los eventos de `exception.audit` aparecen correctamente en la plataforma de logs.
 - [ ] Se han probado errores de negocio, base de datos, timeout e inesperados.
@@ -455,8 +441,7 @@ Verificar que:
 - `microservice` coincide con el servicio.
 - La categoría es `UNEXPECTED`.
 - La tabla es `orders`.
-- El token aparece como `[REDACTED]` si la captura está activada.
+- El objeto aparece dentro de `metadata.failedObject` y el token figura como `[REDACTED]`.
 - La API devuelve un mensaje genérico y no el detalle técnico.
 
 Eliminar la prueba controlada después de validar la integración.
-

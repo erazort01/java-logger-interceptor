@@ -23,7 +23,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 - La aplicación aporta el contexto que solo ella conoce; la librería normaliza y registra.
 - Las interfaces públicas permiten sustituir clasificación y reporte con beans propios.
 - No se exponen mensajes técnicos internos en respuestas HTTP inesperadas.
-- La captura de objetos es explícita, desactivada por defecto, saneada y limitada.
+- El objeto seleccionado se incorpora completo en `metadata` y el saneado es obligatorio y no desactivable.
 - La adopción no exige herencia ni cambios en los repositorios existentes.
 
 ## Componentes principales
@@ -41,8 +41,8 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 1. Una operación anotada o un manejador HTTP recibe una excepción.
 2. El reporter evita registrar dos veces la misma instancia y clasifica su cadena causal.
 3. Recoge nombre del microservicio, MDC, causa raíz y contexto proporcionado.
-4. Si está permitido, convierte el objeto a JSON, oculta campos sensibles y limita el tamaño.
-5. Emite el evento JSON mediante `exception.audit` y conserva opcionalmente el stack trace.
+4. Convierte los metadatos y el objeto completo a JSON y aplica reglas obligatorias de enmascarado.
+5. Sanea también mensajes y stack trace antes de emitir el evento mediante `exception.audit`.
 6. En HTTP, el manejador devuelve un error funcional o una respuesta técnica genérica.
 
 ## Impacto del consenso funcional
@@ -51,7 +51,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 - Módulos afectados: un único starter autocontenido con API y autoconfiguración.
 - Contrato principal: `ExceptionLogEvent`; sus campos deben evolucionar de forma compatible.
 - Restricciones: Java 17, Spring Boot 3, bajo acoplamiento y protección de datos.
-- Riesgos mitigados: filtrado de secretos, truncado, respuesta HTTP sin causa interna y captura desactivada por defecto.
+- Riesgos mitigados: filtrado obligatorio de secretos y patrones sensibles, respuesta HTTP sin causa interna y stack trace saneado.
 
 ## Estructura técnica del repositorio
 
@@ -93,17 +93,18 @@ La librería no persiste datos.
 
 ## Seguridad
 
-- `capture-object=false` por defecto.
-- Lista configurable de nombres de campos sensibles, aplicada recursivamente sin distinguir mayúsculas.
-- Límite de tamaño para evitar logs excesivos.
+- Lista interna obligatoria de campos sensibles, aplicada recursivamente sin distinguir mayúsculas.
+- Detección adicional de correos, IBAN, tarjetas, JWT, cabeceras Bearer y asignaciones de credenciales en texto libre.
+- Los servicios solo pueden añadir reglas mediante `additional-sensitive-fields`; no pueden eliminar ni desactivar las obligatorias.
+- El objeto completo puede generar logs grandes; el volumen debe controlarse en la plataforma y durante el piloto.
 - Los errores técnicos devuelven mensajes públicos genéricos.
 - La sanitización por nombre de campo no garantiza por sí sola el cumplimiento: cada dominio debe revisar qué objetos autoriza.
 
 ## Observabilidad
 
 - Logger dedicado `exception.audit`.
-- Evento JSON con microservicio, categoría, código, tabla, operación y correlación.
-- Stack trace configurable.
+- Evento JSON con microservicio, categoría, código, tabla, operación, correlación y objeto dentro de `metadata`.
+- Stack trace configurable, siempre saneado antes de registrarse.
 - Los dashboards, métricas y alertas se implementan en la plataforma receptora.
 
 ## Decisiones técnicas vigentes
@@ -121,4 +122,3 @@ La librería no persiste datos.
 - Integrar IDs de OpenTelemetry de forma automática si MDC no los contiene.
 - Decidir si cada categoría requiere severidad diferente, métricas o alertas.
 - Añadir pruebas de integración con los backends de logging y stacks reales de la organización.
-

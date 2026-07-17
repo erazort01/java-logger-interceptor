@@ -1,7 +1,6 @@
 package com.example.platform.exceptionlogging;
 
 import java.time.Instant;
-import java.util.Map;
 
 public record ExceptionLogEvent(
         Instant timestamp,
@@ -15,8 +14,6 @@ public record ExceptionLogEvent(
         String operation,
         String correlationId,
         String traceId,
-        String objectType,
-        Object objectSnapshot,
-        Map<String, Object> metadata) {
+        Object metadata,
+        String stackTrace) {
 }
-
