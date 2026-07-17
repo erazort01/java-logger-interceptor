@@ -19,7 +19,7 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 
 ## Estado actual
 
-MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de desplegarlo en los 120 microservicios hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven corporativo y validarlo en un pequeño grupo piloto.
+MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de desplegarlo en los microservicios hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven corporativo y validarlo en un pequeño grupo piloto.
 
 ## Requisitos
 
@@ -150,7 +150,7 @@ exception-logging:
   web-handler-enabled: false
 ```
 
-## Adopción en 120 microservicios
+## Adopción en microservicios
 
 1. Publicar una versión inmutable en el repositorio Maven interno.
 2. Probarla en 3–5 servicios representativos: JDBC/JPA, integraciones HTTP y mensajería.
