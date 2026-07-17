@@ -168,5 +168,4 @@ src/main/resources/  registro del starter de Spring Boot
 src/test/java/       pruebas de clasificación, saneado y autoconfiguración
 ```
 
-Consulta [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.
-
+Consulta [GUIA_DE_USO.md](GUIA_DE_USO.md) para la integración detallada, [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.
