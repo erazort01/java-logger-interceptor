@@ -29,14 +29,14 @@ Ambos deben acordar objetivos, restricciones, riesgos y esquema del evento antes
 - Agente funcional 1: responsable de plataforma de microservicios.
 - Agente funcional 2: responsable de observabilidad y operación.
 - Supervisores expertos: arquitectura Java, SRE y seguridad de aplicaciones.
-- Objetivo acordado: unificar el diagnóstico de errores de base de datos, negocio y conectividad en 120 microservicios.
+- Objetivo acordado: unificar el diagnóstico de errores de base de datos, negocio y conectividad en microservicios Spring Boot.
 - Reglas de negocio confirmadas: incluir microservicio, categoría, causa, tabla y operación cuando se conozcan; admitir contexto del objeto de forma optativa.
 - Restricciones aceptadas: Java 17, Spring Boot 3, integración por dependencia, sin acoplamiento a entidades ni bases de datos concretas.
 - Riesgos funcionales asumidos: los servicios deben declarar tabla/contexto; el nombre no siempre puede deducirse automáticamente.
 - Enfoque elegido: starter autoconfigurable, clasificación extensible, anotación y API programática, logs JSON y saneado.
 - Alternativas descartadas: parsear SQL o mensajes del driver por ser frágil; registrar siempre el objeto por riesgo de privacidad; exigir una clase base por aumentar acoplamiento.
 - Impacto esperado en arquitectura: API pública pequeña y estable, autoconfiguración reemplazable y contrato de evento versionable.
-- Estado del acuerdo: aprobado para MVP; pendiente de validación con responsables reales antes del despliegue corporativo.
+- Estado del acuerdo: aprobado para MVP; pendiente de validación en el entorno de destino antes del despliegue.
 
 ## Especialización concreta
 

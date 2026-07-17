@@ -13,7 +13,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 ## Alcance actual
 
 - Starter de Spring Boot con configuración automática.
-- Clasificador predeterminado y punto de extensión para clasificadores corporativos.
+- Clasificador predeterminado y punto de extensión para clasificadores personalizados.
 - Reporter SLF4J con evento JSON, contexto, saneado y deduplicación.
 - Aspecto optativo y manejador global HTTP optativo.
 - Excepción de negocio base con código estable.
@@ -52,7 +52,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 
 ## Impacto del consenso funcional
 
-- Decisión funcional: lograr una integración homogénea en 120 microservicios sin conocer sus dominios concretos.
+- Decisión funcional: lograr una integración homogénea en cualquier microservicio Spring Boot sin conocer su dominio concreto.
 - Módulos afectados: un único starter autocontenido con API y autoconfiguración.
 - Contrato principal: `ExceptionLogEvent`; sus campos deben evolucionar de forma compatible.
 - Restricciones: Java 17, Spring Boot 3, bajo acoplamiento y protección de datos.
@@ -95,12 +95,12 @@ La librería no persiste datos.
 - Distribución: artefacto Maven versionado en Nexus o Artifactory.
 - Configuración: propiedades `exception-logging.*`; no usa secretos propios.
 - Despliegue: junto con cada microservicio consumidor.
-- Evolución: versiones semánticas y BOM/parent POM corporativo para controlar la adopción.
+- Evolución: versiones semánticas y BOM o parent POM cuando el entorno consumidor lo requiera.
 
 ## Seguridad
 
 - Lista interna obligatoria de campos sensibles, aplicada recursivamente sin distinguir mayúsculas.
-- Detección adicional de correos, IBAN, tarjetas, JWT, cabeceras Bearer y asignaciones de credenciales en texto libre.
+- Detección adicional de correos, JWT, cabeceras Bearer y asignaciones de credenciales en texto libre.
 - Los servicios solo pueden añadir reglas mediante `additional-sensitive-fields`; no pueden eliminar ni desactivar las obligatorias.
 - El objeto completo puede generar logs grandes; el volumen debe controlarse en la plataforma y durante el piloto.
 - Los errores técnicos devuelven mensajes públicos genéricos.
@@ -119,15 +119,15 @@ La librería no persiste datos.
 - Se usa anotación más API programática para cubrir HTTP, jobs, mensajería y tareas asíncronas.
 - El nombre de tabla es explícito; no se analiza SQL ni texto de excepciones.
 - Una instancia de excepción solo se registra una vez mediante un registro de claves débiles.
-- La autoconfiguración usa `@ConditionalOnMissingBean` para admitir componentes corporativos.
+- La autoconfiguración usa `@ConditionalOnMissingBean` para admitir componentes personalizados.
 - Los IDs entrantes se validan para impedir saltos de línea, valores excesivos o inyección en logs.
 - Los ámbitos de traza restauran el MDC anterior y `wrap` transporta el ID a tareas asíncronas.
 - La versión inicial mantiene todo en un artefacto; se dividirá en `core` y `starter` solo si aparecen consumidores sin Spring.
 
 ## Riesgos y pendientes
 
-- Validar compatibilidad exacta con las versiones de Spring Boot usadas por los 120 servicios.
-- Definir el esquema corporativo final del evento y su política de evolución.
+- Validar compatibilidad exacta con las versiones de Spring Boot de los servicios consumidores.
+- Definir el esquema final del evento y su política de evolución.
 - Integrar IDs de OpenTelemetry de forma automática si MDC no los contiene.
 - Decidir si cada categoría requiere severidad diferente, métricas o alertas.
-- Añadir pruebas de integración con los backends de logging y stacks reales de la organización.
+- Añadir pruebas de integración con los backends de logging y stacks de los entornos consumidores.

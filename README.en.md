@@ -1,10 +1,10 @@
-# Exception Logging Spring Boot Starter
+# Java Logger Interceptor
 
 [Versión en español](README.md)
 
-Java library that applies consistent exception handling and structured logging across Spring Boot microservices. It classifies database, business, connectivity, and unexpected failures; records the microservice, correlation data, table, operation, and root cause; and places the complete serialized failure object under `metadata.failedObject`.
+Generic Java library for consistent exception handling, structured logging, and trace propagation in any Spring Boot microservice. It classifies database, business, connectivity, and unexpected failures; records the microservice, correlation data, table, operation, and root cause; and places the complete serialized failure object under `metadata.failedObject`.
 
-The failure object, custom metadata, exception messages, and stack trace always pass through mandatory masking. Built-in masking rules cannot be disabled or replaced through configuration. Services may only add organization- or domain-specific sensitive field names.
+The failure object, custom metadata, exception messages, and stack trace always pass through mandatory masking. Built-in masking rules cannot be disabled or replaced through configuration. Services may only add domain-specific sensitive field names.
 
 ## Main capabilities
 
@@ -21,7 +21,7 @@ The failure object, custom metadata, exception messages, and stack trace always 
 
 ## Current status
 
-Functional MVP for Java 17 and Spring Boot 3.x. Before organization-wide adoption, replace the example Maven coordinates, publish an immutable release to the corporate repository, and validate it with a representative pilot group.
+Functional MVP for Java 17 and Spring Boot 3.x. Before production adoption, replace the example Maven coordinates, publish an immutable release to the selected repository, and validate it with representative services.
 
 ## Installation
 
@@ -30,7 +30,7 @@ Publish the artifact to Nexus, Artifactory, or another internal Maven repository
 ```xml
 <dependency>
     <groupId>com.example.platform</groupId>
-    <artifactId>exception-logging-spring-boot-starter</artifactId>
+    <artifactId>java-logger-interceptor</artifactId>
     <version>0.1.0</version>
 </dependency>
 ```
@@ -40,24 +40,24 @@ The microservice name is automatically read from `spring.application.name`.
 ## Basic usage
 
 ```java
-@LogFailure(table = "orders", operation = "INSERT", captureArgument = 0)
-public Order save(Order order) {
-    return repository.save(order);
+@LogFailure(table = "example_records", operation = "INSERT", captureArgument = 0)
+public ExampleRecord save(ExampleRecord record) {
+    return repository.save(record);
 }
 ```
 
-If the method fails, the complete serialized `order` is stored under `metadata.failedObject`. Sensitive fields and sensitive free-text patterns are replaced with `[REDACTED]` before the event is written.
+If the method fails, the complete serialized `record` is stored under `metadata.failedObject`. Sensitive fields and sensitive free-text patterns are replaced with `[REDACTED]` before the event is written.
 
 For non-AOP flows:
 
 ```java
 try {
-    paymentClient.charge(command);
+    remoteClient.execute(command);
 } catch (RuntimeException error) {
     exceptionReporter.report(error, FailureContext.builder()
-            .operation("CHARGE_PAYMENT")
+            .operation("EXECUTE_REMOTE_ACTION")
             .failedObject(command)
-            .metadata("provider", "payments")
+            .metadata("targetService", "remote-service")
             .build());
     throw error;
 }
@@ -67,8 +67,8 @@ For business rules:
 
 ```java
 throw new BusinessException(
-        "ORDER_ALREADY_PAID",
-        "The order has already been paid"
+        "RESOURCE_STATE_INVALID",
+        "The resource is not in a valid state"
 );
 ```
 
@@ -77,7 +77,7 @@ throw new BusinessException(
 ```yaml
 spring:
   application:
-    name: orders-service
+    name: example-service
 
 exception-logging:
   enabled: true
@@ -88,7 +88,7 @@ exception-logging:
   correlation-header-name: X-Correlation-Id
   include-stacktrace: true
   additional-sensitive-fields:
-    - internalCustomerReference
+    - internalReference
     - legacyCredential
 ```
 
@@ -98,21 +98,21 @@ exception-logging:
 
 ```json
 {
-  "microservice": "orders-service",
+  "microservice": "example-service",
   "category": "DATABASE",
   "exceptionType": "org.springframework.dao.DataIntegrityViolationException",
   "message": "duplicate key",
   "rootCause": "duplicate key value violates unique constraint",
-  "table": "orders",
+  "table": "example_records",
   "operation": "INSERT",
   "correlationId": "req-7f8a",
   "traceId": "a4c31d",
   "metadata": {
-    "method": "OrderService.save(..)",
-    "failedObjectType": "com.example.Order",
+    "method": "ExampleService.save(..)",
+    "failedObjectType": "com.example.ExampleRecord",
     "failedObject": {
       "id": 42,
-      "customerName": "[REDACTED]",
+      "ownerName": "[REDACTED]",
       "token": "[REDACTED]"
     }
   },
@@ -134,7 +134,7 @@ Closing a scope restores the previous MDC values so pooled threads cannot leak a
 
 ## Mandatory masking
 
-Built-in rules cover common credentials, tokens, keys, payment and banking data, tax and personal identifiers, names, contact details, addresses, and dates of birth. The library also masks e-mail addresses, IBANs, payment-card patterns, JWTs, Bearer credentials, and credential assignments found in free text.
+Built-in rules cover common credentials, tokens, keys, personal identifiers, names, contact details, addresses, and dates of birth. The library also masks e-mail addresses, JWTs, Bearer credentials, and credential assignments found in free text.
 
 Automatic detection cannot understand every possible business field. Each service must add domain-specific names through `additional-sensitive-fields` and review selected failure objects before production rollout.
 

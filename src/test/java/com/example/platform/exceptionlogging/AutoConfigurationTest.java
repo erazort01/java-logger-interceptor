@@ -14,7 +14,7 @@ class AutoConfigurationTest {
 
     @Test
     void configuresReporterAndUsesSpringApplicationName() {
-        contextRunner.withPropertyValues("spring.application.name=orders-service")
+        contextRunner.withPropertyValues("spring.application.name=example-service")
                 .run(context -> {
                     assertThat(context).hasSingleBean(ExceptionReporter.class);
                     assertThat(context).hasSingleBean(TraceContext.class);
@@ -23,7 +23,7 @@ class AutoConfigurationTest {
                     assertThat(context).hasSingleBean(RestTemplateCustomizer.class);
                     assertThat(context).hasSingleBean(RestClientCustomizer.class);
                     assertThat(context.getBean(ExceptionLoggingProperties.class).getApplicationName())
-                            .isEqualTo("orders-service");
+                            .isEqualTo("example-service");
                 });
     }
 
