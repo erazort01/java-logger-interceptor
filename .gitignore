@@ -3,5 +3,13 @@ target/
 *.iml
 .vscode/
 *.log
+.env
+.env.*
+!.env.example
+settings.xml
+*.pem
+*.key
+*.p12
+*.pfx
 work/
 outputs/
