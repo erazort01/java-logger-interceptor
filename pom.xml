@@ -6,7 +6,7 @@
 
     <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.3</version>
     <name>Java Logger Interceptor</name>
     <description>Logging estructurado, tratamiento de excepciones y propagación de trazas para Spring Boot</description>
     <url>https://github.com/erazort01/java-logger-interceptor</url>
