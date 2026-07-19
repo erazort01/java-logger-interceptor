@@ -2,7 +2,7 @@
 
 [English version](README.en.md)
 
-Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto completo relacionado con el fallo.
+Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto relacionado con el fallo dentro de límites seguros.
 
 El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascarado obligatorio. Las reglas internas no pueden desactivarse ni reemplazarse mediante configuración; cada servicio únicamente puede añadir nombres de campos sensibles adicionales.
 
@@ -13,36 +13,32 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 - Clasificación extensible mediante `ExceptionClassifier`.
 - Log JSON bajo el logger `exception.audit`, con stack trace saneado y configurable.
 - `BusinessException` con código funcional y estado HTTP.
-- Respuesta HTTP uniforme sin devolver detalles técnicos internos.
+- Respuesta HTTP uniforme opt-in sin devolver detalles técnicos internos.
 - Anotación `@LogFailure` para declarar tabla, operación y argumento que se incorporará completo a `metadata`.
 - API `ExceptionReporter` para procesos asíncronos, consumidores, jobs y casos no HTTP.
 - Deduplicación de una misma instancia de excepción.
 
 ## Estado actual
 
-MVP funcional. Incluye el starter, la autoconfiguración y pruebas unitarias. Antes de utilizarlo en producción hay que sustituir el `groupId` de ejemplo, publicarlo en el repositorio Maven correspondiente y validarlo en servicios representativos.
+Versión estable preparada para publicarse en GitHub Packages con coordenadas `io.github.erazort01:java-logger-interceptor:1.0.0`. El proyecto se distribuye bajo Apache License 2.0; antes de utilizarlo en producción debe validarse en servicios representativos.
 
 ## Requisitos
 
 - Java 17 o superior.
-- Spring Boot 3.x.
+- Spring Boot 3.5.x.
 - Maven 3.9 o superior para compilar la librería.
 
 ## Instalación
 
-Publicar primero el artefacto en Nexus, Artifactory o el repositorio Maven interno:
-
-```bash
-mvn clean deploy
-```
+El workflow `Publish Java Package with Maven` publica el artefacto en GitHub Packages al publicar una GitHub Release cuyo tag coincida con la versión del POM, por ejemplo `v1.0.0`. Usa únicamente el `GITHUB_TOKEN` efímero con `packages: write`.
 
 Después, añadirlo a cada microservicio:
 
 ```xml
 <dependency>
-    <groupId>com.example.platform</groupId>
+    <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>0.1.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -77,7 +73,10 @@ try {
 Para reglas de negocio:
 
 ```java
-throw new BusinessException("RESOURCE_STATE_INVALID", "El recurso no se encuentra en un estado válido");
+throw new BusinessException(
+        "RESOURCE_STATE_INVALID",
+        "Detalle interno para diagnóstico",
+        "El recurso no se encuentra en un estado válido");
 ```
 
 ## Configuración
@@ -91,18 +90,26 @@ spring:
 
 exception-logging:
   enabled: true
-  web-handler-enabled: true
+  web-handler-enabled: false
   aspect-enabled: true
   trace-propagation-enabled: true
+  accept-incoming-trace-ids: false
   trace-header-name: X-Trace-Id
   correlation-header-name: X-Correlation-Id
-  include-stacktrace: true
+  trace-propagation-allowed-hosts:
+    - inventory.internal
+    - payments.internal
+  include-stacktrace: false
+  max-message-length: 4096
+  max-stack-trace-length: 32768
+  max-metadata-depth: 8
+  max-metadata-nodes: 1000
   additional-sensitive-fields:
     - internalReference
     - legacyCredential
 ```
 
-La lista obligatoria interna cubre credenciales, tokens, claves, identificadores personales, nombres, contacto, dirección y fechas de nacimiento. `additional-sensitive-fields` solo amplía esa protección. No existe una propiedad para desactivar el enmascarado ni para eliminar reglas obligatorias.
+La lista obligatoria interna cubre credenciales, tokens, claves, identificadores personales, nombres, contacto, dirección y fechas de nacimiento. También se limitan longitud, profundidad y número de nodos antes de registrar el evento. `additional-sensitive-fields` solo amplía esa protección. No existe una propiedad para desactivar el enmascarado ni para eliminar reglas obligatorias.
 
 ## Formato del log
 
@@ -121,7 +128,7 @@ Ejemplo abreviado:
   "traceId": "a4c31d",
   "metadata": {
     "method": "ExampleService.save(..)",
-    "failedObjectType": "com.example.ExampleRecord",
+      "failedObjectType": "platform.demo.Record",
     "failedObject": {
       "id": 42,
       "ownerName": "[REDACTED]",
@@ -132,7 +139,11 @@ Ejemplo abreviado:
 }
 ```
 
-La librería genera automáticamente un ID cuando la petición no lo trae, reutiliza un `X-Trace-Id` válido, lo almacena en MDC, lo devuelve en la respuesta y lo propaga en clientes `RestClient` y `RestTemplate` construidos mediante Spring Boot. `X-Correlation-Id` se admite como cabecera heredada y se mantiene sincronizada con el ID de traza.
+La librería genera un ID interno por petición, lo almacena en MDC y lo devuelve en la respuesta. Solo reutiliza cabeceras entrantes si `accept-incoming-trace-ids=true`, opción reservada a entradas protegidas por un proxy de confianza. Los clientes `RestClient` y `RestTemplate` solo propagan la traza a los hosts exactos de `trace-propagation-allowed-hosts`; una lista vacía no propaga a ningún destino. `X-Correlation-Id` se mantiene sincronizada con el ID de traza.
+
+## Consumir desde GitHub Packages
+
+GitHub Packages exige autenticación incluso para paquetes Maven públicos. El consumidor debe configurar en `~/.m2/settings.xml` un servidor con id `github`, su usuario de GitHub y un PAT classic con alcance mínimo `read:packages`, y declarar el repositorio `https://maven.pkg.github.com/erazort01/java-logger-interceptor`. No se guardan credenciales en este repositorio.
 
 Para jobs, consumidores o tareas asíncronas:
 
@@ -164,9 +175,11 @@ exception-logging:
   web-handler-enabled: false
 ```
 
+El manejador ya está desactivado por defecto. Si se habilita, queda en la precedencia más baja para que los `@ControllerAdvice` del microservicio tengan prioridad. Los constructores históricos de `BusinessException` tratan `message` como detalle interno y devuelven un mensaje genérico; el constructor de tres cadenas permite declarar explícitamente un mensaje público.
+
 ## Adopción en microservicios Spring Boot
 
-1. Publicar una versión inmutable en el repositorio Maven interno.
+1. Publicar una versión inmutable en GitHub Packages mediante una GitHub Release.
 2. Probarla en 3–5 servicios representativos: JDBC/JPA, integraciones HTTP y mensajería.
 3. Validar el esquema JSON con la plataforma de logs y crear dashboards por `category`, `microservice` y `errorCode`.
 4. Acordar la política de campos sensibles y retención del entorno de destino.
@@ -179,6 +192,10 @@ exception-logging:
 mvn clean verify
 ```
 
+## Licencia
+
+Distribuido bajo [Apache License 2.0](LICENSE).
+
 ## Estructura
 
 ```text
@@ -187,4 +204,4 @@ src/main/resources/  registro del starter de Spring Boot
 src/test/java/       pruebas de clasificación, saneado y autoconfiguración
 ```
 
-Consulta [GUIA_DE_USO.md](GUIA_DE_USO.md) para la integración detallada en español, [USAGE_GUIDE.md](USAGE_GUIDE.md) para la guía en inglés, [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.
+Consulta [GUIA_DE_USO.md](GUIA_DE_USO.md) para la integración detallada en español, [USAGE_GUIDE.md](USAGE_GUIDE.md) para la guía en inglés, [ARQUITECTURA.md](ARQUITECTURA.md) para las decisiones técnicas, [security_best_practices_report.md](security_best_practices_report.md) para la auditoría de seguridad y [AGENTS.md](AGENTS.md) para las reglas de mantenimiento.
