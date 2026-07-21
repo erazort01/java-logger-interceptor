@@ -7,25 +7,25 @@ Esta guía explica cómo integrar `java-logger-interceptor` en cualquier microse
 ## 1. Requisitos
 
 - Java 17 o superior.
-- Spring Boot 3.x.
+- Spring Boot 3.5.x.
 - El artefacto disponible en un repositorio Maven accesible para el microservicio.
 - Un valor único en `spring.application.name` para cada microservicio.
 
 ## 2. Añadir la dependencia
 
-Después de publicar la librería en Nexus o Artifactory, añadirla al `pom.xml` del microservicio:
+Después de publicar la GitHub Release y configurar el repositorio/autenticación de GitHub Packages, añadirla al `pom.xml` del microservicio:
 
 ```xml
 <dependency>
-    <groupId>com.example.platform</groupId>
+    <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>0.1.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
 La librería se configura automáticamente. No es necesario añadir `@ComponentScan` ni importar manualmente su configuración.
 
-Antes de distribuirla se deben sustituir el `groupId`, la versión y el repositorio de ejemplo por los valores del entorno de destino.
+El repositorio Maven es `https://maven.pkg.github.com/erazort01/java-logger-interceptor`. GitHub Packages exige un PAT classic con `read:packages` para consumidores; las credenciales se configuran bajo el servidor `github` en `~/.m2/settings.xml`, nunca en el POM.
 
 ## 3. Configuración mínima
 
@@ -48,12 +48,19 @@ spring:
 
 exception-logging:
   enabled: true
-  web-handler-enabled: true
+  web-handler-enabled: false
   aspect-enabled: true
   trace-propagation-enabled: true
+  accept-incoming-trace-ids: false
   trace-header-name: X-Trace-Id
   correlation-header-name: X-Correlation-Id
-  include-stacktrace: true
+  trace-propagation-allowed-hosts:
+    - remote-service.internal
+  include-stacktrace: false
+  max-message-length: 4096
+  max-stack-trace-length: 32768
+  max-metadata-depth: 8
+  max-metadata-nodes: 1000
   additional-sensitive-fields:
     - internalReference
     - legacyCredential
@@ -65,12 +72,18 @@ exception-logging:
 |---|---:|---|
 | `enabled` | `true` | Activa o desactiva toda la librería. |
 | `application-name` | `spring.application.name` | Permite sobrescribir el nombre mostrado en los logs. |
-| `web-handler-enabled` | `true` | Activa las respuestas HTTP uniformes. |
+| `web-handler-enabled` | `false` | Activa de forma explícita las respuestas HTTP uniformes. |
 | `aspect-enabled` | `true` | Activa el procesamiento de `@LogFailure`. |
 | `trace-propagation-enabled` | `true` | Genera y propaga el contexto de traza HTTP. |
+| `accept-incoming-trace-ids` | `false` | Confía en IDs externos; habilitar solo tras un proxy de confianza. |
 | `trace-header-name` | `X-Trace-Id` | Cabecera canónica del ID de traza. |
 | `correlation-header-name` | `X-Correlation-Id` | Cabecera heredada compatible. |
-| `include-stacktrace` | `true` | Incluye la traza completa en el backend de logging. |
+| `trace-propagation-allowed-hosts` | lista vacía | Hosts exactos a los que los clientes pueden propagar IDs. |
+| `include-stacktrace` | `false` | Incluye una traza saneada y limitada en el backend de logging. |
+| `max-message-length` | `4096` | Limita cada texto antes de aplicar el saneado. |
+| `max-stack-trace-length` | `32768` | Limita la traza cuando se habilita. |
+| `max-metadata-depth` | `8` | Limita la profundidad del árbol de metadatos. |
+| `max-metadata-nodes` | `1000` | Limita el número de nodos del árbol de metadatos. |
 | `additional-sensitive-fields` | lista vacía | Añade nombres específicos del dominio a las reglas obligatorias; no permite eliminar las internas. |
 
 No existe ninguna propiedad que desactive el enmascarado. El objeto seleccionado, los metadatos, los mensajes de excepción y el stack trace se sanean siempre.
@@ -80,7 +93,7 @@ No existe ninguna propiedad que desactive el enmascarado. El objeto seleccionado
 Anotar el método de servicio donde se conoce la tabla, la operación y el objeto procesado:
 
 ```java
-import com.example.platform.exceptionlogging.LogFailure;
+import platform.exceptionloggin.LogFailure;
 
 @LogFailure(
         table = "example_records",
@@ -125,23 +138,26 @@ Para que la anotación funcione, el método debe ejecutarse a través de un bean
 Lanzar `BusinessException` con un código estable y un mensaje comprensible:
 
 ```java
-import com.example.platform.exceptionlogging.BusinessException;
+import platform.exceptionloggin.BusinessException;
 
 if (!resource.canTransition()) {
     throw new BusinessException(
             "RESOURCE_STATE_INVALID",
+            "Estado actual incompatible: " + resource.internalState(),
             "El recurso no se encuentra en un estado válido"
     );
 }
 ```
 
 Por defecto, una excepción de negocio devuelve HTTP `422 Unprocessable Entity`.
+El segundo argumento es detalle interno para logs y el tercero es el único mensaje destinado al cliente. Los constructores antiguos sin mensaje público devuelven el texto genérico seguro.
 
 Se puede indicar otro estado:
 
 ```java
 throw new BusinessException(
         "RESOURCE_NOT_FOUND",
+        "No se encontró el recurso interno " + internalId,
         "No se ha encontrado el recurso",
         HttpStatus.NOT_FOUND
 );
@@ -187,8 +203,8 @@ Si la excepción llega al manejador HTTP, la respuesta será `503 Service Unavai
 La anotación es cómoda para métodos Spring. Para jobs, consumidores, listeners o flujos donde se necesita contexto dinámico, inyectar `ExceptionReporter`:
 
 ```java
-import com.example.platform.exceptionlogging.ExceptionReporter;
-import com.example.platform.exceptionlogging.FailureContext;
+import platform.exceptionloggin.ExceptionReporter;
+import platform.exceptionloggin.FailureContext;
 
 @Service
 public class RemoteActionProcessor {
@@ -255,11 +271,10 @@ Recomendaciones:
 
 ## 9. Correlación y trazabilidad
 
-La librería gestiona el ID automáticamente en peticiones HTTP:
+La librería gestiona el ID automáticamente en peticiones HTTP con una frontera de confianza explícita:
 
-- Si llega un `X-Trace-Id` válido, lo reutiliza.
-- Si no llega, acepta `X-Correlation-Id` como compatibilidad heredada.
-- Si ninguno es válido, genera un UUID nuevo.
+- Por defecto ignora `X-Trace-Id` y `X-Correlation-Id` externos y genera un UUID nuevo.
+- Con `accept-incoming-trace-ids=true`, reutiliza un ID válido; esta opción solo debe habilitarse tras un proxy de confianza.
 - Guarda el mismo valor en `traceId` y `correlationId` dentro de MDC.
 - Devuelve ambos headers en la respuesta.
 - Restaura el MDC anterior cuando termina la petición.
@@ -268,7 +283,7 @@ Los valores externos deben tener entre 8 y 128 caracteres y solo pueden contener
 
 ### Llamadas entre microservicios
 
-Los clientes `RestClient` y `RestTemplate` creados con los builders autoconfigurados de Spring Boot reciben un interceptor que añade el mismo ID:
+Los clientes `RestClient` y `RestTemplate` creados con los builders autoconfigurados de Spring Boot reciben un interceptor que añade el mismo ID únicamente cuando el host exacto está en `trace-propagation-allowed-hosts`:
 
 ```java
 @Service
@@ -332,7 +347,7 @@ El logger dedicado es `exception.audit`. Un evento puede tener este aspecto:
   "traceId": "a4c31d",
   "metadata": {
     "method": "ExampleService.save(..)",
-    "failedObjectType": "com.example.ExampleCommand",
+    "failedObjectType": "platform.demo.Command",
     "failedObject": {
       "id": "record-123",
       "ownerName": "[REDACTED]",
@@ -355,12 +370,12 @@ Categorías posibles:
 
 ## 11. Manejador HTTP
 
-Con `web-handler-enabled=true`, la librería aplica estas respuestas:
+El manejador está desactivado por defecto. Con `web-handler-enabled=true`, la librería aplica estas respuestas con precedencia inferior a los advice propios del servicio:
 
 | Tipo | Estado | Código público |
 |---|---:|---|
 | Autenticación | 401 | `AUTHENTICATION_FAILED` |
-| `BusinessException` | El indicado en la excepción; por defecto 422 | Código de negocio proporcionado. |
+| `BusinessException` | Estado 4xx indicado; por defecto 422 | Código de negocio validado; mensaje público explícito o genérico. |
 | Base de datos o conectividad | 503 | `DEPENDENCY_UNAVAILABLE` |
 | Inesperada | 500 | `INTERNAL_ERROR` |
 

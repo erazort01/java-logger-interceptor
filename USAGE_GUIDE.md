@@ -7,7 +7,7 @@ This guide explains how to integrate `java-logger-interceptor` into any Spring B
 ## 1. Requirements
 
 - Java 17 or later.
-- Spring Boot 3.x.
+- Spring Boot 3.5.x.
 - The library available from a Maven repository accessible to the service.
 - A unique `spring.application.name` for each microservice.
 
@@ -15,13 +15,14 @@ This guide explains how to integrate `java-logger-interceptor` into any Spring B
 
 ```xml
 <dependency>
-    <groupId>com.example.platform</groupId>
+    <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>0.1.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
 The starter is automatically configured. No component scan or manual configuration import is required.
+The Maven repository is `https://maven.pkg.github.com/erazort01/java-logger-interceptor`. Consumers configure a `github` server in `~/.m2/settings.xml` with a classic PAT scoped to `read:packages`; credentials never belong in the POM.
 
 ## 3. Configure the microservice
 
@@ -32,12 +33,19 @@ spring:
 
 exception-logging:
   enabled: true
-  web-handler-enabled: true
+  web-handler-enabled: false
   aspect-enabled: true
   trace-propagation-enabled: true
+  accept-incoming-trace-ids: false
   trace-header-name: X-Trace-Id
   correlation-header-name: X-Correlation-Id
-  include-stacktrace: true
+  trace-propagation-allowed-hosts:
+    - remote-service.internal
+  include-stacktrace: false
+  max-message-length: 4096
+  max-stack-trace-length: 32768
+  max-metadata-depth: 8
+  max-metadata-nodes: 1000
   additional-sensitive-fields:
     - internalReference
     - legacyCredential
@@ -47,12 +55,18 @@ exception-logging:
 |---|---:|---|
 | `enabled` | `true` | Enables or disables the library itself. |
 | `application-name` | `spring.application.name` | Overrides the name recorded in events. |
-| `web-handler-enabled` | `true` | Enables uniform HTTP error responses. |
+| `web-handler-enabled` | `false` | Explicitly enables uniform HTTP error responses. |
 | `aspect-enabled` | `true` | Enables `@LogFailure` interception. |
 | `trace-propagation-enabled` | `true` | Generates and propagates the HTTP trace context. |
+| `accept-incoming-trace-ids` | `false` | Trusts external IDs; enable only behind a trusted proxy. |
 | `trace-header-name` | `X-Trace-Id` | Canonical trace-ID header. |
 | `correlation-header-name` | `X-Correlation-Id` | Supported legacy correlation header. |
-| `include-stacktrace` | `true` | Adds a sanitized stack trace to the structured event. |
+| `trace-propagation-allowed-hosts` | empty | Exact hosts to which clients may propagate IDs. |
+| `include-stacktrace` | `false` | Adds a sanitized, bounded stack trace to the structured event. |
+| `max-message-length` | `4096` | Bounds each text value before sanitization. |
+| `max-stack-trace-length` | `32768` | Bounds stack traces when enabled. |
+| `max-metadata-depth` | `8` | Bounds metadata nesting. |
+| `max-metadata-nodes` | `1000` | Bounds the total sanitized metadata nodes. |
 | `additional-sensitive-fields` | empty | Extends mandatory masking with domain-specific field names. |
 
 Masking has no disable switch. Built-in sensitive rules cannot be replaced or removed.
@@ -83,15 +97,18 @@ Spring AOP only intercepts calls that pass through a Spring-managed proxy. Self-
 ```java
 throw new BusinessException(
         "RESOURCE_STATE_INVALID",
+        "Internal state was incompatible",
         "The resource is not in a valid state"
 );
 ```
 
 The default HTTP status is `422 Unprocessable Entity`. A custom status can be supplied:
+The second argument is internal log detail and the third is the only client-facing message. Legacy constructors without an explicit public message return the safe generic message.
 
 ```java
 throw new BusinessException(
         "RESOURCE_NOT_FOUND",
+        "Internal resource identifier was not found",
         "The resource was not found",
         HttpStatus.NOT_FOUND
 );
@@ -186,11 +203,11 @@ Automatic masking reduces risk but cannot infer every possible business meaning.
 
 ## 10. Correlation
 
-For inbound HTTP requests, the library reuses a valid `X-Trace-Id`, falls back to `X-Correlation-Id`, or generates a UUID when neither is available. The same value is stored as `traceId` and `correlationId` in MDC, returned in both response headers, and removed when the request scope closes.
+For inbound HTTP requests, the library ignores external trace headers by default and generates a UUID. With `accept-incoming-trace-ids=true`, it reuses a valid `X-Trace-Id` or legacy `X-Correlation-Id`; only enable this behind a trusted proxy. The selected value is stored as `traceId` and `correlationId` in MDC, returned in both response headers, and removed when the request scope closes.
 
 Inbound values must contain 8–128 letters, digits, dots, underscores, or hyphens. Unsafe values are rejected and replaced.
 
-Spring Boot-built `RestClient` and `RestTemplate` instances automatically send the current ID downstream:
+Spring Boot-built `RestClient` and `RestTemplate` instances send the current ID only to exact hosts configured in `trace-propagation-allowed-hosts`:
 
 ```java
 public RemoteServiceGateway(RestClient.Builder builder) {
@@ -218,10 +235,12 @@ The wrapper restores the worker thread's previous MDC state after completion.
 
 ## 11. HTTP handling
 
+The built-in advice is disabled by default and has the lowest precedence when explicitly enabled.
+
 | Failure | Status | Public code |
 |---|---:|---|
 | Authentication | 401 | `AUTHENTICATION_FAILED` |
-| `BusinessException` | Configured status; 422 by default | Supplied business code |
+| `BusinessException` | Configured 4xx status; 422 by default | Validated code and explicit public message, or a generic message |
 | Database or connectivity | 503 | `DEPENDENCY_UNAVAILABLE` |
 | Unexpected | 500 | `INTERNAL_ERROR` |
 
