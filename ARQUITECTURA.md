@@ -6,7 +6,7 @@ Proporcionar un componente transversal para que los microservicios Java clasifiq
 
 ## Problema que resuelve
 
-Centraliza el formato de los logs y el tratamiento HTTP de errores de base de datos, negocio, conectividad e inesperados. Permite incorporar contexto conocido por la aplicación, como tabla, operación y objeto afectado.
+Centraliza el formato de los logs y el tratamiento HTTP de errores de autenticación, base de datos, negocio, conectividad e inesperados. Permite incorporar contexto conocido por la aplicación, como tabla, operación y objeto afectado.
 
 No sustituye a una plataforma de observabilidad, a la instrumentación de trazas, a las políticas de reintentos ni a la gestión de alertas. Tampoco intenta extraer de forma automática y no fiable el nombre de una tabla a partir de SQL o mensajes del driver.
 
@@ -23,6 +23,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 - La aplicación aporta el contexto que solo ella conoce; la librería normaliza y registra.
 - Las interfaces públicas permiten sustituir clasificación y reporte con beans propios.
 - No se exponen mensajes técnicos internos en respuestas HTTP inesperadas.
+- Los fallos de autenticación se clasifican como `AUTH` y se traducen a HTTP 401 con un mensaje genérico; los fallos de autorización 403 permanecen separados.
 - El objeto seleccionado se incorpora en `metadata` hasta los límites seguros de profundidad y nodos; el saneado es obligatorio y no desactivable.
 - La adopción no exige herencia ni cambios en los repositorios existentes.
 
@@ -87,7 +88,7 @@ La librería no persiste datos.
 - MDC para `correlationId` y `traceId`, gestionado mediante ámbitos restaurables.
 - Spring MVC cuando está disponible.
 - `RestClient` y `RestTemplate` construidos por Spring Boot para propagación HTTP saliente.
-- Excepciones Spring JDBC/DAO y cliente REST para la clasificación predeterminada.
+- Excepciones Spring JDBC/DAO, cliente REST, Spring Security, JAAS y respuestas HTTP 401 para la clasificación predeterminada. La detección de Spring Security se realiza sin convertirlo en dependencia obligatoria para los consumidores.
 
 ## Despliegue y operación
 

@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +46,39 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().message()).isEqualTo("La solicitud no es válida");
         assertThat(reports).hasValue(0);
+    }
+
+    @Test
+    void returnsSanitizedUnauthorizedResponseForAuthenticationException() {
+        AtomicReference<Throwable> reported = new AtomicReference<>();
+        GlobalExceptionHandler handler = handler((error, context) -> reported.set(error));
+        BadCredentialsException error = new BadCredentialsException("password was incorrect");
+
+        ResponseEntity<ApiError> response = handler.handleUnexpected(error);
+
+        assertThat(reported.get()).isSameAs(error);
+        assertAuthenticationFailure(response);
+    }
+
+    @Test
+    void returnsAuthenticationResponseForUnauthorizedHttpFailure() {
+        AtomicInteger reports = new AtomicInteger();
+        GlobalExceptionHandler handler = handler((error, context) -> reports.incrementAndGet());
+
+        ResponseEntity<ApiError> response = handler.handleUnexpected(
+                new ResponseStatusException(HttpStatus.UNAUTHORIZED, "token was invalid"));
+
+        assertThat(reports).hasValue(1);
+        assertAuthenticationFailure(response);
+    }
+
+    private void assertAuthenticationFailure(ResponseEntity<ApiError> response) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("AUTHENTICATION_FAILED");
+        assertThat(response.getBody().message())
+                .isEqualTo("No se ha podido autenticar la solicitud")
+                .doesNotContain("password", "token");
     }
 
     private GlobalExceptionHandler handler(ExceptionReporter reporter) {

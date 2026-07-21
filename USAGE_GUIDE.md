@@ -239,9 +239,12 @@ The built-in advice is disabled by default and has the lowest precedence when ex
 
 | Failure | Status | Public code |
 |---|---:|---|
+| Authentication | 401 | `AUTHENTICATION_FAILED` |
 | `BusinessException` | Configured 4xx status; 422 by default | Validated code and explicit public message, or a generic message |
 | Database or connectivity | 503 | `DEPENDENCY_UNAVAILABLE` |
 | Unexpected | 500 | `INTERNAL_ERROR` |
+
+Authentication covers Spring Security and JAAS authentication exceptions and HTTP 401 failures. Authorization failures such as HTTP 403 are intentionally not classified as `AUTH`. The public 401 response uses a generic message and never exposes the original authentication error.
 
 If the service already owns a `@RestControllerAdvice`, disable only the library advice:
 

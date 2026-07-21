@@ -2,7 +2,7 @@
 
 [Versión en español](README.md)
 
-Generic Java library for consistent exception handling, structured logging, and trace propagation in any Spring Boot microservice. It classifies database, business, connectivity, and unexpected failures; records the microservice, correlation data, table, operation, and root cause; and places the serialized failure object under `metadata.failedObject` within safe limits.
+Generic Java library for consistent exception handling, structured logging, and trace propagation in any Spring Boot microservice. It classifies authentication (`AUTH`), database, business, connectivity, and unexpected failures; records the microservice, correlation data, table, operation, and root cause; and places the serialized failure object under `metadata.failedObject` within safe limits.
 
 The failure object, custom metadata, exception messages, and stack trace always pass through mandatory masking. Built-in masking rules cannot be disabled or replaced through configuration. Services may only add domain-specific sensitive field names.
 
@@ -11,6 +11,7 @@ The failure object, custom metadata, exception messages, and stack trace always 
 - Spring Boot auto-configuration after adding one dependency.
 - Trace-ID generation, reuse, and propagation across microservices.
 - Extensible exception classification through `ExceptionClassifier`.
+- `AUTH` classification for Spring Security and JAAS authentication exceptions and HTTP 401 failures, distinct from 403 authorization failures.
 - Structured JSON event emitted by the `exception.audit` logger.
 - `BusinessException` with a stable business code and HTTP status.
 - Opt-in uniform HTTP error responses without exposing internal technical details.

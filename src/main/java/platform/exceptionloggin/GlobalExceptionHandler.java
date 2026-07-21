@@ -47,17 +47,30 @@ final class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception error) {
         if (error instanceof ErrorResponse errorResponse
+                && errorResponse.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()) {
+            ReportingGuard.report(reporter, error);
+            return authenticationFailure();
+        }
+        if (error instanceof ErrorResponse errorResponse
                 && errorResponse.getStatusCode().is4xxClientError()) {
             return response(errorResponse.getStatusCode(), "REQUEST_REJECTED", "La solicitud no es válida");
         }
         ReportingGuard.report(reporter, error);
         ErrorCategory category = classifySafely(error);
+        if (category == ErrorCategory.AUTH) {
+            return authenticationFailure();
+        }
         if (category == ErrorCategory.DATABASE || category == ErrorCategory.CONNECTIVITY) {
             return response(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE",
                     "Un servicio necesario no está disponible temporalmente");
         }
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                 "Se ha producido un error interno");
+    }
+
+    private ResponseEntity<ApiError> authenticationFailure() {
+        return response(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED",
+                "No se ha podido autenticar la solicitud");
     }
 
     private ResponseEntity<ApiError> response(HttpStatusCode status, String code, String message) {

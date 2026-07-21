@@ -362,6 +362,7 @@ Categorías posibles:
 
 | Categoría | Uso |
 |---|---|
+| `AUTH` | Fallos de autenticación de Spring Security o JAAS y errores HTTP 401. No incluye fallos de autorización 403. |
 | `DATABASE` | Errores JDBC, SQL y excepciones Spring de acceso a datos. |
 | `BUSINESS` | Reglas de negocio representadas por `BusinessException`. |
 | `CONNECTIVITY` | Fallos de red, clientes remotos y timeouts. |
@@ -373,11 +374,12 @@ El manejador está desactivado por defecto. Con `web-handler-enabled=true`, la l
 
 | Tipo | Estado | Código público |
 |---|---:|---|
+| Autenticación | 401 | `AUTHENTICATION_FAILED` |
 | `BusinessException` | Estado 4xx indicado; por defecto 422 | Código de negocio validado; mensaje público explícito o genérico. |
 | Base de datos o conectividad | 503 | `DEPENDENCY_UNAVAILABLE` |
 | Inesperada | 500 | `INTERNAL_ERROR` |
 
-Las respuestas 500 y 503 no incluyen el mensaje técnico de la excepción.
+Las respuestas 401, 500 y 503 no incluyen el mensaje técnico de la excepción.
 
 Si el microservicio ya tiene un `@RestControllerAdvice`, desactivar el de la librería para evitar decisiones ambiguas:
 

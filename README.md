@@ -2,7 +2,7 @@
 
 [English version](README.en.md)
 
-Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto relacionado con el fallo dentro de límites seguros.
+Librería Java genérica para aplicar un tratamiento uniforme de excepciones, logs estructurados y propagación de trazas en cualquier microservicio Spring Boot. Clasifica errores de autenticación (`AUTH`), base de datos, negocio, conectividad e inesperados; añade el nombre del microservicio, correlación, tabla, operación y causa raíz; e incorpora en `metadata` el objeto relacionado con el fallo dentro de límites seguros.
 
 El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascarado obligatorio. Las reglas internas no pueden desactivarse ni reemplazarse mediante configuración; cada servicio únicamente puede añadir nombres de campos sensibles adicionales.
 
@@ -11,6 +11,7 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 - Autoconfiguración al añadir la dependencia al microservicio.
 - Generación, reutilización y propagación de un ID de traza entre microservicios.
 - Clasificación extensible mediante `ExceptionClassifier`.
+- Categoría `AUTH` para excepciones de autenticación de Spring Security, JAAS y respuestas HTTP 401, sin confundirlas con errores de autorización 403.
 - Log JSON bajo el logger `exception.audit`, con stack trace saneado y configurable.
 - `BusinessException` con código funcional y estado HTTP.
 - Respuesta HTTP uniforme opt-in sin devolver detalles técnicos internos.
