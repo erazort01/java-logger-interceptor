@@ -28,6 +28,10 @@ final class GlobalExceptionHandler {
     ResponseEntity<ApiError> handleUnexpected(Exception error) {
         reporter.report(error);
         ErrorCategory category = classifier.classify(error);
+        if (category == ErrorCategory.AUTH) {
+            return response(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED",
+                    "No se ha podido autenticar la solicitud");
+        }
         if (category == ErrorCategory.DATABASE || category == ErrorCategory.CONNECTIVITY) {
             return response(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE",
                     "Un servicio necesario no está disponible temporalmente");
