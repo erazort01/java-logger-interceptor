@@ -18,7 +18,7 @@ final class LogFailureAspect {
             return joinPoint.proceed();
         } catch (Throwable error) {
             try {
-                Object failedObject = argument(joinPoint.getArgs(), logFailure.captureArgument());
+                Object failedObject = arguments(joinPoint.getArgs(), logFailure);
                 FailureContext context = FailureContext.builder()
                         .table(emptyToNull(logFailure.table()))
                         .operation(emptyToNull(logFailure.operation()))
@@ -32,6 +32,13 @@ final class LogFailureAspect {
             }
             throw error;
         }
+    }
+
+    private static Object arguments(Object[] args, LogFailure logFailure) {
+        if (logFailure.captureAllArguments()) {
+            return args.clone();
+        }
+        return argument(args, logFailure.captureArgument());
     }
 
     private static Object argument(Object[] args, int index) {

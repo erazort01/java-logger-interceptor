@@ -11,5 +11,6 @@ public @interface LogFailure {
     String table() default "";
     String operation() default "";
     int captureArgument() default -1;
+    boolean captureAllArguments() default false;
 }
 

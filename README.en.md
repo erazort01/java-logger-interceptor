@@ -49,6 +49,8 @@ public ExampleRecord save(ExampleRecord record) {
 
 If the method fails, the complete serialized `record` is stored under `metadata.failedObject`. Sensitive fields and sensitive free-text patterns are replaced with `[REDACTED]` before the event is written.
 
+Set `captureAllArguments = true` to capture every method argument under `metadata.failedObject`. It takes precedence over `captureArgument`; values retain declaration order and pass through the same sanitization and safety limits.
+
 For non-AOP flows:
 
 ```java
