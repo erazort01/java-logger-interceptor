@@ -6,8 +6,8 @@ Esta guía explica cómo integrar `java-logger-interceptor` en cualquier microse
 
 ## 1. Requisitos
 
-- Java 17 o superior.
-- Spring Boot 3.5.x.
+- Java 26.
+- Spring Boot 4.1.x.
 - El artefacto disponible en un repositorio Maven accesible para el microservicio.
 - Un valor único en `spring.application.name` para cada microservicio.
 
@@ -19,7 +19,7 @@ Después de publicar la GitHub Release y configurar el repositorio/autenticació
 <dependency>
     <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 

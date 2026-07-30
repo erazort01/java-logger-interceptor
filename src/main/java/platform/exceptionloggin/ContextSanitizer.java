@@ -1,10 +1,10 @@
 package platform.exceptionloggin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -104,10 +104,10 @@ final class ContextSanitizer {
 
     private JsonNode sanitizeNode(JsonNode node, int depth, NodeBudget budget) {
         if (!budget.consume()) {
-            return TextNode.valueOf(TRUNCATED);
+            return StringNode.valueOf(TRUNCATED);
         }
-        if (node.isContainerNode() && depth >= maxMetadataDepth) {
-            return TextNode.valueOf(TRUNCATED);
+        if (node.isContainer() && depth >= maxMetadataDepth) {
+            return StringNode.valueOf(TRUNCATED);
         }
         if (node.isObject()) {
             ObjectNode sanitized = objectMapper.createObjectNode();
@@ -115,7 +115,7 @@ final class ContextSanitizer {
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> entry = fields.next();
                 if (isSensitiveField(entry.getKey())) {
-                    sanitized.set(entry.getKey(), TextNode.valueOf(REDACTED));
+                    sanitized.set(entry.getKey(), StringNode.valueOf(REDACTED));
                 } else {
                     sanitized.set(entry.getKey(), sanitizeNode(entry.getValue(), depth + 1, budget));
                 }
@@ -135,8 +135,8 @@ final class ContextSanitizer {
                 }
             }
             return sanitized;
-        } else if (node.isTextual()) {
-            return TextNode.valueOf(sanitizeText(node.textValue()));
+        } else if (node.isString()) {
+            return StringNode.valueOf(sanitizeText(node.stringValue()));
         }
         return node;
     }

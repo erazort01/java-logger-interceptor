@@ -6,8 +6,8 @@ This guide explains how to integrate `java-logger-interceptor` into any Spring B
 
 ## 1. Requirements
 
-- Java 17 or later.
-- Spring Boot 3.5.x.
+- Java 26.
+- Spring Boot 4.1.x.
 - The library available from a Maven repository accessible to the service.
 - A unique `spring.application.name` for each microservice.
 
@@ -17,7 +17,7 @@ This guide explains how to integrate `java-logger-interceptor` into any Spring B
 <dependency>
     <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 

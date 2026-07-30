@@ -28,6 +28,7 @@ final class ReportingGuard {
         }
     }
 
+    @SuppressWarnings("removal")
     static void rethrowFatal(Throwable error) {
         if (error instanceof VirtualMachineError virtualMachineError) {
             throw virtualMachineError;

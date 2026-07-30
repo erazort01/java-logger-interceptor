@@ -1,6 +1,6 @@
 package platform.exceptionloggin;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +28,7 @@ class GlobalExceptionHandlerTest {
             response = handler.handleBusiness(error);
         }
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().message()).isEqualTo(BusinessException.DEFAULT_PUBLIC_MESSAGE);
         assertThat(response.getBody().message()).doesNotContain("SQL", "super-secret", "ana@example.com");

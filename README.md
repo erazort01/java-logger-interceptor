@@ -21,17 +21,17 @@ El objeto, los metadatos, los mensajes y la traza pasan siempre por un enmascara
 
 ## Estado actual
 
-Versión estable preparada para publicarse en GitHub Packages con coordenadas `io.github.erazort01:java-logger-interceptor:1.0.0`. El proyecto se distribuye bajo Apache License 2.0; antes de utilizarlo en producción debe validarse en servicios representativos.
+Versión estable preparada para publicarse en GitHub Packages con coordenadas `io.github.erazort01:java-logger-interceptor:2.0.0`. El proyecto se distribuye bajo Apache License 2.0; antes de utilizarlo en producción debe validarse en servicios representativos.
 
 ## Requisitos
 
-- Java 17 o superior.
-- Spring Boot 3.5.x.
+- Java 26.
+- Spring Boot 4.1.x.
 - Maven 3.9 o superior para compilar la librería.
 
 ## Instalación
 
-El workflow `Publish Java Package with Maven` publica el artefacto en GitHub Packages al publicar una GitHub Release cuyo tag coincida con la versión del POM, por ejemplo `v1.0.0`. Usa únicamente el `GITHUB_TOKEN` efímero con `packages: write`.
+El workflow `Publish Java Package with Maven` publica el artefacto en GitHub Packages al publicar una GitHub Release cuyo tag coincida con la versión del POM, por ejemplo `v2.0.0`. Usa únicamente el `GITHUB_TOKEN` efímero con `packages: write`.
 
 Después, añadirlo a cada microservicio:
 
@@ -39,7 +39,7 @@ Después, añadirlo a cada microservicio:
 <dependency>
     <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 

@@ -10,7 +10,7 @@ public class BusinessException extends RuntimeException {
     private final String publicMessage;
 
     public BusinessException(String code, String message) {
-        this(code, message, DEFAULT_PUBLIC_MESSAGE, HttpStatus.UNPROCESSABLE_ENTITY, null);
+        this(code, message, DEFAULT_PUBLIC_MESSAGE, HttpStatus.UNPROCESSABLE_CONTENT, null);
     }
 
     public BusinessException(String code, String message, HttpStatus status) {
@@ -22,7 +22,7 @@ public class BusinessException extends RuntimeException {
     }
 
     public BusinessException(String code, String message, String publicMessage) {
-        this(code, message, publicMessage, HttpStatus.UNPROCESSABLE_ENTITY, null);
+        this(code, message, publicMessage, HttpStatus.UNPROCESSABLE_CONTENT, null);
     }
 
     public BusinessException(String code, String message, String publicMessage, HttpStatus status) {
@@ -36,7 +36,7 @@ public class BusinessException extends RuntimeException {
                              Throwable cause) {
         super(message, cause);
         this.code = code;
-        this.status = status == null ? HttpStatus.UNPROCESSABLE_ENTITY : status;
+        this.status = status == null ? HttpStatus.UNPROCESSABLE_CONTENT : status;
         this.publicMessage = publicMessage == null || publicMessage.isBlank()
                 ? DEFAULT_PUBLIC_MESSAGE
                 : publicMessage;

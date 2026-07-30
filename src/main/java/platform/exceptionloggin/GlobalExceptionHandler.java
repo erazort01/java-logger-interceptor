@@ -37,7 +37,7 @@ final class GlobalExceptionHandler {
         ReportingGuard.report(reporter, error);
         HttpStatus status = error.getStatus().is4xxClientError()
                 ? error.getStatus()
-                : HttpStatus.UNPROCESSABLE_ENTITY;
+                : HttpStatus.UNPROCESSABLE_CONTENT;
         String code = PUBLIC_ERROR_CODE.matcher(error.getCode() == null ? "" : error.getCode()).matches()
                 ? error.getCode()
                 : "BUSINESS_ERROR";

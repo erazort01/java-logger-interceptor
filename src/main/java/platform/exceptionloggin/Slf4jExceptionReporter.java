@@ -1,7 +1,7 @@
 package platform.exceptionloggin;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +74,7 @@ public final class Slf4jExceptionReporter implements ExceptionReporter {
     private String serialize(ExceptionLogEvent event) {
         try {
             return objectMapper.writeValueAsString(event);
-        } catch (JsonProcessingException error) {
+        } catch (JacksonException error) {
             return "{\"serializationError\":\"" + error.getClass().getSimpleName() + "\"}";
         }
     }

@@ -22,17 +22,17 @@ The failure object, custom metadata, exception messages, and stack trace always 
 
 ## Current status
 
-Stable release for Java 17 and Spring Boot 3.5.x, prepared for GitHub Packages as `io.github.erazort01:java-logger-interceptor:1.0.0`. The project is distributed under the Apache License 2.0; validate it with representative services before production adoption.
+Stable release for Java 26 and Spring Boot 4.1.x, prepared for GitHub Packages as `io.github.erazort01:java-logger-interceptor:2.0.0`. The project is distributed under the Apache License 2.0; validate it with representative services before production adoption.
 
 ## Installation
 
-Publishing a GitHub Release with a tag that matches the POM version, such as `v1.0.0`, runs `Publish Java Package with Maven`. The workflow uses only the ephemeral `GITHUB_TOKEN`. Then add:
+Publishing a GitHub Release with a tag that matches the POM version, such as `v2.0.0`, runs `Publish Java Package with Maven`. The workflow uses only the ephemeral `GITHUB_TOKEN`. Then add:
 
 ```xml
 <dependency>
     <groupId>io.github.erazort01</groupId>
     <artifactId>java-logger-interceptor</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 

@@ -7,7 +7,7 @@ Este repositorio contiene una librería transversal de tratamiento y logging de 
 ## Perfiles y supervisión experta
 
 - Arquitectura: experiencia en librerías Java, Spring Boot, compatibilidad binaria y plataformas de microservicios; supervisión por arquitectura de plataforma.
-- Implementación: experiencia en Java 17, Spring Boot 3, AOP, Jackson y SLF4J; supervisión por un desarrollador senior Java.
+- Implementación: experiencia en Java 26, Spring Boot 4, AOP, Jackson y SLF4J; supervisión por un desarrollador senior Java.
 - QA: experiencia en pruebas unitarias, autoconfiguración e integración entre versiones; supervisión por QA de plataforma.
 - Operaciones: experiencia en observabilidad, logs estructurados, MDC, OpenTelemetry y despliegue masivo; supervisión por SRE/operaciones.
 - Seguridad: experiencia en privacidad, secretos y minimización de datos en logs; supervisión por seguridad de aplicaciones.
@@ -31,7 +31,7 @@ Ambos deben acordar objetivos, restricciones, riesgos y esquema del evento antes
 - Supervisores expertos: arquitectura Java, SRE y seguridad de aplicaciones.
 - Objetivo acordado: unificar el diagnóstico de errores de base de datos, negocio y conectividad en microservicios Spring Boot.
 - Reglas de negocio confirmadas: incluir microservicio, categoría, causa, tabla y operación cuando se conozcan; admitir contexto del objeto de forma optativa.
-- Restricciones aceptadas: Java 17, Spring Boot 3, integración por dependencia, sin acoplamiento a entidades ni bases de datos concretas.
+- Restricciones aceptadas: Java 26, Spring Boot 4, integración por dependencia, sin acoplamiento a entidades ni bases de datos concretas.
 - Riesgos funcionales asumidos: los servicios deben declarar tabla/contexto; el nombre no siempre puede deducirse automáticamente.
 - Enfoque elegido: starter autoconfigurable, clasificación extensible, anotación y API programática, logs JSON y saneado.
 - Alternativas descartadas: parsear SQL o mensajes del driver por ser frágil; registrar siempre el objeto por riesgo de privacidad; exigir una clase base por aumentar acoplamiento.
@@ -41,7 +41,7 @@ Ambos deben acordar objetivos, restricciones, riesgos y esquema del evento antes
 ## Especialización concreta
 
 - Dominio: manejo transversal de fallos y observabilidad de microservicios.
-- Stack: Java 17, Maven, Spring Boot 3, Spring AOP, Jackson y SLF4J.
+- Stack: Java 26, Maven, Spring Boot 4, Spring AOP, Jackson y SLF4J.
 - Arquitectura: librería starter autoconfigurable y extensible por interfaces/beans.
 - Persistencia: ninguna.
 - Integraciones: plataforma de logs del consumidor, MDC, Spring MVC y APIs de acceso/integración.

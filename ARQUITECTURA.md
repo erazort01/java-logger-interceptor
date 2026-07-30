@@ -56,7 +56,7 @@ No sustituye a una plataforma de observabilidad, a la instrumentación de trazas
 - Decisión funcional: lograr una integración homogénea en cualquier microservicio Spring Boot sin conocer su dominio concreto.
 - Módulos afectados: un único starter autocontenido con API y autoconfiguración.
 - Contrato principal: `ExceptionLogEvent`; sus campos deben evolucionar de forma compatible.
-- Restricciones: Java 17, Spring Boot 3.5, bajo acoplamiento y protección de datos.
+- Restricciones: Java 26, Spring Boot 4.1, bajo acoplamiento y protección de datos.
 - Riesgos mitigados: dependencias mantenidas, filtrado obligatorio de secretos y patrones sensibles, límites de tamaño, respuesta HTTP sin causa interna y stack trace saneado y opt-in.
 
 ## Estructura técnica del repositorio
@@ -92,7 +92,7 @@ La librería no persiste datos.
 
 ## Despliegue y operación
 
-- Runtime: Java 17 y Spring Boot 3.5.x.
+- Runtime: Java 26 y Spring Boot 4.1.x.
 - Distribución: `io.github.erazort01:java-logger-interceptor` en GitHub Packages mediante una GitHub Release inmutable.
 - Configuración: propiedades `exception-logging.*`; no usa secretos propios.
 - Despliegue: junto con cada microservicio consumidor.
@@ -132,7 +132,7 @@ La librería no persiste datos.
 
 ## Riesgos y pendientes
 
-- Mantener una matriz de compatibilidad dentro de la línea Spring Boot 3.5.x.
+- Mantener una matriz de compatibilidad dentro de la línea Spring Boot 4.1.x.
 - Definir el esquema final del evento y su política de evolución.
 - Integrar IDs de OpenTelemetry de forma automática si MDC no los contiene.
 - Decidir si cada categoría requiere severidad diferente, métricas o alertas.

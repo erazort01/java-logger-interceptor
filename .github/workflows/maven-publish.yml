@@ -25,11 +25,11 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.release.tag_name }}
 
-      - name: Set up Java 17 and GitHub Packages
+      - name: Set up Java 26 and GitHub Packages
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '26'
           server-id: github
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN

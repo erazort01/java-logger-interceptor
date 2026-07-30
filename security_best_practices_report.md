@@ -1,5 +1,7 @@
 # Informe de seguridad — java-logger-interceptor
 
+> Nota de vigencia (30 de julio de 2026): este informe conserva la evidencia histórica de la línea 1.x. La línea 2.0.0 migra a Java 26, Spring Boot 4.1 y Jackson 3; debe someterse a una nueva revisión de dependencias antes de su publicación.
+
 Fecha: 2026-07-19
 
 Rama revisada: `feature/security-maven-publish`

@@ -58,7 +58,8 @@ class TracePropagationInterceptorTest {
         interceptor().intercept(request, new byte[0],
                 (outgoing, body) -> new MockClientHttpResponse(new byte[0], 200));
 
-        assertThat(request.getHeaders()).doesNotContainKeys("X-Trace-Id", "X-Correlation-Id");
+        assertThat(request.getHeaders().getFirst("X-Trace-Id")).isNull();
+        assertThat(request.getHeaders().getFirst("X-Correlation-Id")).isNull();
     }
     private TracePropagationInterceptor interceptor() {
         return new TracePropagationInterceptor(context, properties);

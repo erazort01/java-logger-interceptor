@@ -1,7 +1,7 @@
 package platform.exceptionloggin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -20,9 +20,9 @@ class ContextSanitizerTest {
                 "nested", Map.of("token", "abc")));
 
         JsonNode tree = (JsonNode) result;
-        assertThat(tree.get("username").asText()).isEqualTo("[REDACTED]");
-        assertThat(tree.get("password").asText()).isEqualTo("[REDACTED]");
-        assertThat(tree.get("nested").get("token").asText()).isEqualTo("[REDACTED]");
+        assertThat(tree.get("username").asString()).isEqualTo("[REDACTED]");
+        assertThat(tree.get("password").asString()).isEqualTo("[REDACTED]");
+        assertThat(tree.get("nested").get("token").asString()).isEqualTo("[REDACTED]");
     }
 
     @Test
@@ -32,8 +32,8 @@ class ContextSanitizerTest {
                 "password", "mandatory",
                 "internalReference", "additional"));
 
-        assertThat(tree.get("password").asText()).isEqualTo("[REDACTED]");
-        assertThat(tree.get("internalReference").asText()).isEqualTo("[REDACTED]");
+        assertThat(tree.get("password").asString()).isEqualTo("[REDACTED]");
+        assertThat(tree.get("internalReference").asString()).isEqualTo("[REDACTED]");
     }
 
     @Test
