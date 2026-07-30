@@ -120,6 +120,7 @@ La librería no persiste datos.
 ## Decisiones técnicas vigentes
 
 - Se usa anotación más API programática para cubrir HTTP, jobs, mensajería y tareas asíncronas.
+- `@LogFailure` permite capturar un argumento por índice o todos como una lista ordenada dentro de `metadata.failedObject`; la captura total es explícita y prevalece sobre el índice.
 - El nombre de tabla es explícito; no se analiza SQL ni texto de excepciones.
 - Una instancia de excepción solo se registra una vez mediante un registro de claves débiles.
 - La autoconfiguración usa `@ConditionalOnMissingBean` para admitir componentes personalizados.

@@ -88,6 +88,17 @@ public ExampleRecord save(ExampleRecord record) {
 
 `captureArgument` is zero-based. `0` selects the first method argument, `1` the second, and `-1` selects no argument. If a Spring `DataAccessException` or `SQLException` occurs, the event category is `DATABASE`.
 
+Set `captureAllArguments = true` to store every method argument, in declaration order, as a list under `metadata.failedObject`:
+
+```java
+@LogFailure(table = "example_records", operation = "UPDATE", captureAllArguments = true)
+public ExampleRecord update(UUID recordId, ExampleRecord record) {
+    return repository.update(recordId, record);
+}
+```
+
+Capturing all arguments takes precedence when `captureArgument` is also set. Use it deliberately: values are always sanitized and bounded, but capturing more data increases event size and can include domain-specific sensitive data.
+
 The table is explicit because parsing SQL or driver messages would not be reliable across databases and versions.
 
 Spring AOP only intercepts calls that pass through a Spring-managed proxy. Self-invocation inside the same bean does not trigger the annotation; use another bean or `ExceptionReporter` in that case.

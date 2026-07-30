@@ -56,6 +56,8 @@ public ExampleRecord save(ExampleRecord record) {
 }
 ```
 
+Para capturar todos los parámetros del método en `metadata.failedObject`, usar `captureAllArguments = true`. Esta opción prevalece sobre `captureArgument`; los valores conservan el orden de declaración y pasan por el mismo saneado y límites de seguridad.
+
 Para un consumidor, job o integración sin AOP:
 
 ```java

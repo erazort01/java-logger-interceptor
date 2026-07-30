@@ -113,6 +113,21 @@ Si `repository.save` provoca una excepción Spring `DataAccessException` o una `
 - `1`: segundo argumento.
 - `-1`: no seleccionar ningún argumento.
 
+Para registrar todos los argumentos del método, en el mismo orden en que están declarados, usar `captureAllArguments = true`:
+
+```java
+@LogFailure(
+        table = "example_records",
+        operation = "UPDATE",
+        captureAllArguments = true
+)
+public ExampleRecord update(UUID recordId, ExampleRecord record) {
+    return repository.update(recordId, record);
+}
+```
+
+Los argumentos se almacenan como una lista en `metadata.failedObject`. Si se configuran a la vez `captureAllArguments = true` y `captureArgument`, prevalece la captura de todos. Esta opción debe usarse de forma deliberada: todos los valores se sanean y limitan, pero registrar más argumentos aumenta el volumen del evento y puede incorporar datos sensibles propios del dominio.
+
 El nombre de la tabla es explícito. La librería no intenta deducirlo analizando SQL o el mensaje del driver porque ese método no es fiable entre bases de datos, idiomas y versiones.
 
 ### Actualización y borrado
